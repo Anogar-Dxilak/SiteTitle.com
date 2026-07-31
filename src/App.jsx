@@ -750,6 +750,10 @@ export default function App() {
     localStorage.setItem('site_lang', newLang);
   };
 
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   const t = TRANSLATIONS[lang] || TRANSLATIONS.tr;
 
   // Terminal için state yapıları

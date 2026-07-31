@@ -202,7 +202,7 @@ export const TRANSLATIONS = {
     about: {
       name: 'Egemen Der',
       title: 'Computer Engineer | Cybersecurity & Red Team',
-      intro: 'I graduated from İskenderun Technical University with a degree in Computer Engineering. I actively worked in SOC operations, gaining extensive hands-on experience in SIEM management (Splunk, QRadar, Wazuh), firewall configurations (FortiGate, pfSense), and vulnerability assessment tools (Nessus, Qualys, OpenVAS). I continuously sharpen my skills in log analysis, early threat detection, packet analysis, and malware behavior analysis. Passionate about Red Teaming, I aim to elevate both my offensive and defensive capabilities every day. I am detail-oriented, a team player, and dependable, committed to completing every assignment with precision, structure, and professionalism.',
+      intro: 'I graduated from Iskenderun Technical University with a degree in Computer Engineering. I actively worked in SOC operations, gaining extensive hands-on experience in SIEM management (Splunk, QRadar, Wazuh), firewall configurations (FortiGate, pfSense), and vulnerability assessment tools (Nessus, Qualys, OpenVAS). I continuously sharpen my skills in log analysis, early threat detection, packet analysis, and malware behavior analysis. Passionate about Red Teaming, I aim to elevate both my offensive and defensive capabilities every day. I am detail-oriented, a team player, and dependable, committed to completing every assignment with precision, structure, and professionalism.',
       contactLabels: {
         location: '📍 Location:',
         email: '📧 Email:',
@@ -260,7 +260,7 @@ export const TRANSLATIONS = {
     },
     education: {
       sectionTitle: 'Education & Certifications',
-      school: 'İskenderun Technical University',
+      school: 'Iskenderun Technical University',
       degree: 'B.S. Computer Engineering',
       date: '2020 - 2025',
       focusLabel: '🎯 Focus:',
