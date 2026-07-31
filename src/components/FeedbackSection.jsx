@@ -1,27 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db, rtdb } from '../firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, push } from 'firebase/database';
+import { TRANSLATIONS } from '../translations';
 
-const RATING_LABELS = {
-  1: 'Zayıf ⚠️',
-  2: 'Geliştirilebilir 🛠️',
-  3: 'İyi 👍',
-  4: 'Çok İyi 🌟',
-  5: 'Mükemmel (Red Team Approved) 🛡️'
-};
+export default function FeedbackSection({ lang = 'tr' }) {
+  const t = TRANSLATIONS[lang]?.feedback || TRANSLATIONS.tr.feedback;
 
-const CATEGORIES = [
-  'Genel',
-  'Tasarım & UI',
-  'Siber Güvenlik & SOC',
-  'Kariyer & İletişim',
-  'Öneri / Fikir'
-];
-
-export default function FeedbackSection() {
   const [name, setName] = useState('');
-  const [category, setCategory] = useState(CATEGORIES[0]);
+  const [category, setCategory] = useState(t.categories[0]);
   const [rating, setRating] = useState(5);
   const [hoverRating, setHoverRating] = useState(0);
   const [message, setMessage] = useState('');
@@ -29,11 +16,16 @@ export default function FeedbackSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusMsg, setStatusMsg] = useState({ type: '', text: '' });
 
+  // Update category when language changes if category is still default
+  useEffect(() => {
+    setCategory(t.categories[0]);
+  }, [lang]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!message.trim()) {
-      setStatusMsg({ type: 'error', text: 'Lütfen bir geri bildirim mesajı yazın.' });
+      setStatusMsg({ type: 'error', text: t.errorEmptyMsg });
       return;
     }
 
@@ -41,12 +33,12 @@ export default function FeedbackSection() {
     setStatusMsg({ type: '', text: '' });
 
     const payload = {
-      name: name.trim() || 'Anonim Ziyaretçi',
+      name: name.trim() || t.defaultAnonymous,
       category: category,
       rating: Number(rating),
       message: message.trim(),
       createdAt: Date.now(),
-      dateStr: new Date().toLocaleDateString('tr-TR', {
+      dateStr: new Date().toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR', {
         day: 'numeric',
         month: 'short',
         year: 'numeric'
@@ -56,7 +48,6 @@ export default function FeedbackSection() {
     let savedToFirebase = false;
 
     try {
-      // 3.5 saniyelik zaman aşımı ile Realtime Database'e kaydetme denemesi
       const timeoutPromise = new Promise((_, reject) =>
         setTimeout(() => reject(new Error('DB Timeout')), 3500)
       );
@@ -67,10 +58,9 @@ export default function FeedbackSection() {
       ]);
       savedToFirebase = true;
     } catch (err) {
-      console.warn('Realtime Database kaydetme uyarısı / zaman aşımı:', err);
+      console.warn('Realtime Database save timeout:', err);
     }
 
-    // Arka planda Firestore denemesi (islemi engellemeyecek şekilde)
     try {
       addDoc(collection(db, 'feedbacks'), {
         ...payload,
@@ -78,7 +68,6 @@ export default function FeedbackSection() {
       }).catch(() => { });
     } catch (e) { }
 
-    // Arka planda egemender@hotmail.com adresine e-posta bildirimi gönderme
     try {
       fetch('https://formsubmit.co/ajax/egemender@hotmail.com', {
         method: 'POST',
@@ -87,19 +76,18 @@ export default function FeedbackSection() {
           'Accept': 'application/json'
         },
         body: JSON.stringify({
-          _subject: `🚨 [Portfolyo Geri Bildirim] ${payload.name} (${payload.rating}/5 Yıldız)`,
+          _subject: `🚨 [Portfolyo Geri Bildirim] ${payload.name} (${payload.rating}/5 Stars)`,
           _captcha: 'false',
           _template: 'table',
           "Gönderen İsmi / Rumuz": payload.name,
           "Kategori": payload.category,
-          "Puan": `${payload.rating} / 5 Yıldız`,
+          "Puan": `${payload.rating} / 5`,
           "Mesaj": payload.message,
           "Tarih": payload.dateStr
         })
-      }).catch((err) => console.warn('E-posta bildirim uyarısı:', err));
+      }).catch((err) => console.warn('Email warning:', err));
     } catch (e) {}
 
-    // Formu sıfırla ve durumu kapat
     setName('');
     setMessage('');
     setRating(5);
@@ -107,38 +95,36 @@ export default function FeedbackSection() {
 
     setStatusMsg({
       type: 'success',
-      text: savedToFirebase
-        ? 'Geri bildiriminiz başarıyla Realtime Database\'e iletildi! Teşekkürler. 🚀'
-        : 'Geri bildiriminiz başarıyla iletildi! Teşekkürler. 🚀'
+      text: t.successMsg
     });
 
     setTimeout(() => setStatusMsg({ type: '', text: '' }), 6000);
   };
 
   return (
-    <section id="feedback" className="mt-20 pt-10 border-t border-gray-900/80">
+    <section id="feedback" className="mt-20 pt-10 border-t border-gray-900/80 text-center flex flex-col items-center justify-center">
       {/* Header Badge */}
       <div className="flex items-center justify-center space-x-3 mb-3">
         <span className="h-px w-12 bg-gradient-to-r from-transparent to-[#00ff66]/50"></span>
         <span className="px-3 py-1 text-xs font-mono text-[#00ff66] bg-[#00ff66]/10 border border-[#00ff66]/30 rounded-full tracking-wider uppercase flex items-center space-x-2">
           <span className="w-2 h-2 rounded-full bg-[#00ff66] animate-pulse"></span>
-          <span>[SYSTEM_FEEDBACK // VERİ TABANI KANALI]</span>
+          <span>{t.badge}</span>
         </span>
         <span className="h-px w-12 bg-gradient-to-l from-transparent to-[#00ff66]/50"></span>
       </div>
 
       <h2 className="text-2xl sm:text-3xl font-bold text-center mb-2 font-mono tracking-tight" style={{ color: '#ffffff' }}>
-        Geri Bildirim & Değerlendirme
+        {t.title}
       </h2>
-      <p className="text-center text-gray-400 font-mono mt-3">
-        Sitedeki deneyiminizi, önerilerinizi veya Red Team projelerim hakkındaki düşüncelerinizi doğrudan iletebilirsiniz.
+      <p className="text-center text-gray-400 font-mono mt-3 max-w-2xl mx-auto px-4 leading-relaxed">
+        {t.subtitle}
       </p>
 
       {/* Spacer */}
       <div style={{ height: '2rem' }}></div>
 
-      {/* Form Container (Ortalanmış ve Genişletilmiş) */}
-      <div className="max-w-2xl mx-auto bg-black/60 backdrop-blur-xl border border-gray-800 hover:border-[#00ff66]/40 p-6 sm:p-10 rounded-2xl shadow-2xl transition-all duration-300 relative group">
+      {/* Form Container */}
+      <div className="w-full max-w-2xl mx-auto bg-black/60 backdrop-blur-xl border border-gray-800 hover:border-[#00ff66]/40 p-6 sm:p-10 rounded-2xl shadow-2xl transition-all duration-300 relative group">
         <div className="absolute -top-3 left-6 bg-[#0a0a0a] px-3 text-[10px] font-mono text-[#00ff66] border border-[#00ff66]/30 rounded">
           FEEDBACK_FORM_INPUT
         </div>
@@ -149,13 +135,13 @@ export default function FeedbackSection() {
             {/* Name Input */}
             <div>
               <label className="block text-xs font-mono text-gray-300 mb-2">
-                İsminiz / Rumuz <span className="text-gray-500">(İsteğe bağlı)</span>
+                {t.nameLabel} <span className="text-gray-500">{t.nameOptional}</span>
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Örn. Hacker0x1 / Ziyaretçi"
+                placeholder={t.namePlaceholder}
                 className="w-full bg-gray-950/80 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] transition-all font-mono"
               />
             </div>
@@ -163,14 +149,14 @@ export default function FeedbackSection() {
             {/* Category Select */}
             <div>
               <label className="block text-xs font-mono text-gray-300 mb-2">
-                Kategori
+                {t.categoryLabel}
               </label>
               <select
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="w-full bg-gray-950/80 border border-gray-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] transition-all font-mono cursor-pointer"
               >
-                {CATEGORIES.map((cat) => (
+                {t.categories.map((cat) => (
                   <option key={cat} value={cat} className="bg-gray-950 text-white">
                     {cat}
                   </option>
@@ -183,10 +169,10 @@ export default function FeedbackSection() {
           <div>
             <div className="flex items-center justify-between mb-2">
               <label className="text-xs font-mono text-gray-300">
-                Puanınız
+                {t.ratingLabel}
               </label>
               <span className="text-xs font-mono text-[#00ff66]">
-                {RATING_LABELS[hoverRating || rating]}
+                {t.ratings[hoverRating || rating]}
               </span>
             </div>
             <div className="flex items-center space-x-2 bg-gray-950/60 p-3 rounded-xl border border-gray-800/80 justify-center sm:justify-start">
@@ -222,13 +208,13 @@ export default function FeedbackSection() {
           {/* Message Textarea */}
           <div>
             <label className="block text-xs font-mono text-gray-300 mb-2">
-              Geri Bildirim Mesajı <span className="text-red-400">*</span>
+              {t.messageLabel} <span className="text-red-400">*</span>
             </label>
             <textarea
               rows="5"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              placeholder="Site veya projeler hakkındaki görüşleriniz, tavsiyeleriniz..."
+              placeholder={t.messagePlaceholder}
               required
               className="w-full bg-gray-950/80 border border-gray-800 rounded-xl p-4 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#00ff66] focus:ring-1 focus:ring-[#00ff66] transition-all font-mono resize-none"
             ></textarea>
@@ -259,14 +245,14 @@ export default function FeedbackSection() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                   </svg>
-                  <span>Gönderiliyor...</span>
+                  <span>{t.submitting}</span>
                 </>
               ) : (
                 <>
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                   </svg>
-                  <span>Geri Bildirimi Gönder</span>
+                  <span>{t.submitBtn}</span>
                 </>
               )}
             </div>
@@ -276,3 +262,4 @@ export default function FeedbackSection() {
     </section>
   );
 }
+
