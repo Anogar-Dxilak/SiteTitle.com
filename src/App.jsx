@@ -432,12 +432,36 @@ const getVirtualFs = (lang) => {
               'tools': {
                 type: 'dir',
                 permissions: 'drwxr-xr-x',
-                links: 2,
+                links: 3,
                 owner: 'egemen',
                 group: 'egemen',
                 size: 4096,
-                date: 'Jul 16 21:00',
+                date: 'Jul 31 11:30',
                 children: {
+                  'sherlock': {
+                    type: 'file',
+                    permissions: '-rwxr-xr-x',
+                    links: 1,
+                    owner: 'egemen',
+                    group: 'egemen',
+                    size: 4096,
+                    date: 'Jul 31 11:30',
+                    content: isEn
+                      ? '#!/bin/bash\n# Sherlock OSINT Profile Finder v1.0.0\n# Author: Egemen Der\n# Usage: ./sherlock or sherlock\n\necho "[*] Initializing Sherlock OSINT Suite..."\necho "[+] Launching interactive web interface..."\n'
+                      : '#!/bin/bash\n# Sherlock OSINT Profil Tespit Aracı v1.0.0\n# Geliştirici: Egemen Der\n# Kullanım: ./sherlock veya sherlock\n\necho "[*] Sherlock OSINT Paketi Başlatılıyor..."\necho "[+] Etkileşimli arayüz açılıyor..."\n'
+                  },
+                  'sherlock.sh': {
+                    type: 'file',
+                    permissions: '-rwxr-xr-x',
+                    links: 1,
+                    owner: 'egemen',
+                    group: 'egemen',
+                    size: 4096,
+                    date: 'Jul 31 11:30',
+                    content: isEn
+                      ? '#!/bin/bash\n# Sherlock OSINT Profile Finder Script\n./sherlock'
+                      : '#!/bin/bash\n# Sherlock OSINT Profil Tespit Scripti\n./sherlock'
+                  },
                   'recon.sh': {
                     type: 'file',
                     permissions: '-rwxr-xr-x',
@@ -731,6 +755,7 @@ export default function App() {
   // Terminal için state yapıları
   const [terminalInput, setTerminalInput] = useState('');
   const [currentPath, setCurrentPath] = useState(HOME_DIR);
+  const [isSherlockModalOpen, setIsSherlockModalOpen] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState([
     { text: t.terminal.welcome, type: 'system' },
     { text: t.terminal.helpInstruction, type: 'system' },
@@ -783,6 +808,7 @@ export default function App() {
           { text: t.terminal.cdCmd, type: 'output' },
           { text: t.terminal.catCmd, type: 'output' },
           { text: t.terminal.pwdCmd, type: 'output' },
+          { text: t.terminal.sherlockCmd, type: 'output' },
           { text: t.terminal.clearCmd, type: 'output' }
         ];
         break;
@@ -969,12 +995,44 @@ export default function App() {
         }
         break;
       }
+      case 'sherlock':
+      case './sherlock':
+      case 'sherlock.sh':
+      case './sherlock.sh':
+      case 'tools/sherlock':
+      case './tools/sherlock':
+        setIsSherlockModalOpen(true);
+        response = [
+          { text: lang === 'en' ? '[*] Initializing Sherlock OSINT Profile Finder v1.0.0...' : '[*] Sherlock OSINT Profil Tespit Aracı v1.0.0 Başlatılıyor...', type: 'output' },
+          { text: lang === 'en' ? '[+] Launching interactive web interface (http://localhost:5174)...' : '[+] Etkileşimli OSINT arayüzü (http://localhost:5174) açılıyor...', type: 'output' },
+          { text: lang === 'en' ? '[+] Active session established successfully.' : '[+] Aktif oturum başarıyla oluşturuldu.', type: 'output' }
+        ];
+        break;
       case 'clear':
         setTerminalHistory([]);
         setTerminalInput('');
         return;
-      default:
-        response = [{ text: `${t.terminal.notFound} "${baseCmd}". ${t.terminal.helpInstruction}`, type: 'error' }];
+      default: {
+        const cleanLower = baseCmd.toLowerCase();
+        if (
+          cleanLower === 'sherlock' ||
+          cleanLower === './sherlock' ||
+          cleanLower === 'sherlock.sh' ||
+          cleanLower === './sherlock.sh' ||
+          cleanLower.endsWith('/sherlock') ||
+          cleanLower.endsWith('/sherlock.sh') ||
+          (currentPath.endsWith('/tools') && (cleanLower === 'sherlock' || cleanLower === './sherlock' || cleanLower === 'sherlock.sh' || cleanLower === './sherlock.sh'))
+        ) {
+          setIsSherlockModalOpen(true);
+          response = [
+            { text: lang === 'en' ? '[*] Initializing Sherlock OSINT Profile Finder v1.0.0...' : '[*] Sherlock OSINT Profil Tespit Aracı v1.0.0 Başlatılıyor...', type: 'output' },
+            { text: lang === 'en' ? '[+] Launching interactive web interface (http://localhost:5174)...' : '[+] Etkileşimli OSINT arayüzü (http://localhost:5174) açılıyor...', type: 'output' },
+            { text: lang === 'en' ? '[+] Active session established successfully.' : '[+] Aktif oturum başarıyla oluşturuldu.', type: 'output' }
+          ];
+        } else {
+          response = [{ text: `${t.terminal.notFound} "${baseCmd}". ${t.terminal.helpInstruction}`, type: 'error' }];
+        }
+      }
     }
 
     const displayPath = currentPath === HOME_DIR ? '~' : (currentPath.startsWith(HOME_DIR + '/') ? '~' + currentPath.slice(HOME_DIR.length) : currentPath);
@@ -988,7 +1046,7 @@ export default function App() {
   };
 
   // Tab ile otomatik tamamlama
-  const AVAILABLE_COMMANDS = ['help', 'about', 'skills', 'experience', 'education', 'contact', 'ls', 'cd', 'cat', 'pwd', 'clear'];
+  const AVAILABLE_COMMANDS = ['help', 'about', 'skills', 'experience', 'education', 'contact', 'sherlock', 'ls', 'cd', 'cat', 'pwd', 'clear'];
 
   const handleTabComplete = (e) => {
     if (e.key !== 'Tab') return;
@@ -1485,6 +1543,61 @@ export default function App() {
       <footer className="border-t border-gray-900 mt-24 py-8 text-center text-xs font-mono text-gray-600">
         &copy; {new Date().getFullYear()} {t.footer.copyright} {t.footer.secure}
       </footer>
+
+      {/* SHERLOCK OSINT EMBEDDED MODAL */}
+      {isSherlockModalOpen && (
+        <div className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-6 animate-fadeIn">
+          <div className="w-full max-w-6xl h-[90vh] bg-[#0f0f0f] border border-[#00ff66]/40 rounded-xl shadow-[0_0_40px_rgba(0,255,102,0.25)] flex flex-col overflow-hidden">
+            {/* Modal Header */}
+            <div className="bg-[#050505] px-4 py-3 border-b border-gray-800 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex space-x-1.5">
+                  <button
+                    onClick={() => setIsSherlockModalOpen(false)}
+                    className="w-3.5 h-3.5 rounded-full bg-red-500 hover:bg-red-600 transition flex items-center justify-center text-[10px] text-black font-bold select-none"
+                    title="Close Window"
+                  >
+                    ×
+                  </button>
+                  <span className="w-3.5 h-3.5 rounded-full bg-yellow-500/80 block select-none"></span>
+                  <span className="w-3.5 h-3.5 rounded-full bg-[#00ff66]/80 block select-none"></span>
+                </div>
+                <span className="font-mono text-xs text-white font-bold flex items-center gap-2 select-none">
+                  <span className="text-[#00ff66]">🔍</span>
+                  <span>SHERLOCK OSINT SUITE v1.0</span>
+                  <span className="text-gray-500 font-normal hidden sm:inline">[/home/egemen/tools/sherlock]</span>
+                </span>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <a
+                  href="http://localhost:5174"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs font-mono bg-gray-955 border border-gray-800 text-gray-300 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1 rounded transition flex items-center gap-1.5"
+                >
+                  <span>{lang === 'en' ? 'Open in New Tab' : 'Yeni Sekmede Aç'}</span> ↗
+                </a>
+                <button
+                  onClick={() => setIsSherlockModalOpen(false)}
+                  className="text-xs font-mono bg-gray-900 border border-gray-800 text-gray-400 hover:text-white px-3 py-1 rounded transition"
+                >
+                  ESC / {lang === 'en' ? 'Close' : 'Kapat'}
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body iframe */}
+            <div className="flex-1 bg-[#0a0a0a] relative">
+              <iframe
+                src="http://localhost:5174"
+                title="Sherlock OSINT Suite"
+                className="w-full h-full border-none"
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

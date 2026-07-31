@@ -178,6 +178,7 @@ export const TRANSLATIONS = {
       cdCmd: '  cd [dizin]  - Dizini değiştir (Örn: cd Documents, cd ..)',
       catCmd: '  cat [dosya] - Dosya içeriğini oku (Örn: cat Desktop/notes.txt)',
       pwdCmd: '  pwd         - Aktif dizin yolunu göster',
+      sherlockCmd: '  sherlock    - Sherlock OSINT Profil Tespit Aracını başlat (tools/sherlock)',
       clearCmd: '  clear       - Terminal ekranını temizle',
       notFound: 'Komut bulunamadı:',
       placeholder: 'help...'
@@ -367,6 +368,7 @@ export const TRANSLATIONS = {
       cdCmd: '  cd [dir]    - Change directory (e.g. cd Documents, cd ..)',
       catCmd: '  cat [file]  - Read file contents (e.g. cat Desktop/notes.txt)',
       pwdCmd: '  pwd         - Print working directory path',
+      sherlockCmd: '  sherlock    - Launch Sherlock OSINT Profile Finder Tool (tools/sherlock)',
       clearCmd: '  clear       - Clear terminal screen',
       notFound: 'Command not found:',
       placeholder: 'type help...'

@@ -1,0 +1,11 @@
+{
+  "name": "sherlock-osint-root",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "dev": "npm --prefix frontend run dev",
+    "backend": "python -m uvicorn app.main:app --reload --port 8000 --app-dir backend",
+    "build": "npm --prefix frontend run build",
+    "start": "start start_app.bat"
+  }
+}
