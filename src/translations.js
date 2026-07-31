@@ -23,7 +23,8 @@ export const TRANSLATIONS = {
       contactValues: {
         location: 'Nilüfer, Bursa, Türkiye',
         military: 'Tamamlandı',
-        languages: 'İngilizce B1, Türkçe (Anadil)'
+        languages: 'İngilizce B1, Türkçe (Anadil)',
+        languagesItems: ['İngilizce B1', 'Türkçe (Anadil)']
       }
     },
     skills: {
@@ -211,7 +212,8 @@ export const TRANSLATIONS = {
       contactValues: {
         location: 'Nilüfer, Bursa, Turkey',
         military: 'Completed',
-        languages: 'English B1, Turkish (Native)'
+        languages: 'English B1, Turkish (Native)',
+        languagesItems: ['English B1', 'Turkish (Native)']
       }
     },
     skills: {

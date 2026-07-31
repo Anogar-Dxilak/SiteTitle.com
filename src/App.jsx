@@ -1157,31 +1157,80 @@ export default function App() {
               </div>
             </div>
 
-            {/* İletişim Detayları Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-gray-900 text-xs font-mono">
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">{t.about.contactLabels.location}</span>
-                <span className="text-gray-300">{t.about.contactValues.location}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">{t.about.contactLabels.email}</span>
-                <a href="mailto:egemender@hotmail.com" className="text-gray-300 hover:text-[#00ff66] transition">egemender@hotmail.com</a>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">{t.about.contactLabels.phone}</span>
-                <a href="tel:+905528252610" className="text-gray-300 hover:text-[#00ff66] transition">+90 552 825 26 10</a>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">{t.about.contactLabels.military}</span>
-                <span className="text-gray-300">{t.about.contactValues.military}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <span className="text-gray-500">{t.about.contactLabels.languages}</span>
-                <span className="text-gray-300">{t.about.contactValues.languages}</span>
-              </div>
-              <div className="flex items-center space-x-3 pt-1">
-                <a href="https://linkedin.com/in/egemen-der" target="_blank" rel="noopener noreferrer" className="text-xs bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66] px-2 py-1 rounded transition">LinkedIn</a>
-                <a href="https://medium.com/@egemender" target="_blank" rel="noopener noreferrer" className="text-xs bg-gray-900 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66] px-2 py-1 rounded transition">Medium</a>
+            {/* İletişim Detayları Grid & Sosyal Bağlantılar */}
+            <div className="pt-4 border-t border-gray-900 text-xs font-mono">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-start">
+                {/* Sol Kolon */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500 shrink-0 select-none">{t.about.contactLabels.location}</span>
+                    <span className="text-gray-300">{t.about.contactValues.location}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500 shrink-0 select-none">{t.about.contactLabels.phone}</span>
+                    <a href="tel:+905528252610" className="text-gray-300 hover:text-[#00ff66] transition whitespace-nowrap">+90 552 825 26 10</a>
+                  </div>
+                  {/* Diller (Alt alta) */}
+                  <div className="pt-1 flex flex-col space-y-1.5">
+                    <span className="text-gray-500 shrink-0 select-none font-semibold">{t.about.contactLabels.languages}</span>
+                    <ul className="space-y-1 text-gray-300 pl-1">
+                      {(t.about.contactValues.languagesItems || ['İngilizce B1', 'Türkçe (Anadil)']).map((langItem, idx) => (
+                        <li key={idx} className="flex items-center space-x-2">
+                          <span className="text-[#00ff66] text-[10px]">▪</span>
+                          <span>{langItem}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Sağ Kolon */}
+                <div className="space-y-3">
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500 shrink-0 select-none">{t.about.contactLabels.email}</span>
+                    <a href="mailto:egemender@hotmail.com" className="text-gray-300 hover:text-[#00ff66] transition break-all">egemender@hotmail.com</a>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-gray-500 shrink-0 select-none">{t.about.contactLabels.military}</span>
+                    <span className="text-gray-300">{t.about.contactValues.military}</span>
+                  </div>
+                  {/* Sosyal Medya Bağlantıları (Askerlik kısmının altında, Diller ile hizada) */}
+                  <div className="pt-1 flex flex-wrap items-center gap-2">
+                    <a
+                      href="https://linkedin.com/in/egemen-der"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs bg-gray-950 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 group"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current text-gray-400 group-hover:text-[#00ff66] transition" viewBox="0 0 24 24">
+                        <path d="M19 0h-14c-2.761 0-5 2.239-5 5v14c0 2.761 2.239 5 5 5h14c2.762 0 5-2.239 5-5v-14c0-2.761-2.238-5-5-5zm-11 19h-3v-11h3v11zm-1.5-12.268c-.966 0-1.75-.79-1.75-1.764s.784-1.764 1.75-1.764 1.75.79 1.75 1.764-.783 1.764-1.75 1.764zm13.5 12.268h-3v-5.604c0-3.368-4-3.113-4 0v5.604h-3v-11h3v1.765c1.396-2.586 7-2.777 7 2.476v6.759z"/>
+                      </svg>
+                      <span>LinkedIn</span>
+                    </a>
+                    <a
+                      href="https://medium.com/@egemender"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs bg-gray-950 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 group"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current text-gray-400 group-hover:text-[#00ff66] transition" viewBox="0 0 24 24">
+                        <path d="M13.54 12a6.8 6.8 0 01-6.77 6.82A6.8 6.8 0 010 12a6.8 6.8 0 016.77-6.82A6.8 6.8 0 0113.54 12zM20.96 12c0 3.54-1.51 6.42-3.38 6.42-1.87 0-3.39-2.88-3.39-6.42s1.52-6.42 3.39-6.42c1.87 0 3.38 2.88 3.38 6.42M24 12c0 3.17-.53 5.75-1.19 5.75-.66 0-1.19-2.58-1.19-5.75s.53-5.75 1.19-5.75C23.47 6.25 24 8.83 24 12z"/>
+                      </svg>
+                      <span>Medium</span>
+                    </a>
+                    <a
+                      href="https://github.com/Anogar-Dxilak"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs bg-gray-950 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 group"
+                    >
+                      <svg className="w-3.5 h-3.5 fill-current text-gray-400 group-hover:text-[#00ff66] transition" viewBox="0 0 24 24">
+                        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+                      </svg>
+                      <span>GitHub</span>
+                    </a>
+                  </div>
+                </div>
               </div>
             </div>
           </section>
