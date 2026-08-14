@@ -1575,7 +1575,7 @@ export default function App() {
 
               <div className="flex items-center space-x-2">
                 <a
-                  href="/sherlock/index.html"
+                  href={`${import.meta.env.BASE_URL}sherlock/index.html`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-xs font-mono bg-gray-955 border border-gray-800 text-gray-300 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1 rounded transition flex items-center gap-1.5"
@@ -1594,7 +1594,7 @@ export default function App() {
             {/* Modal Body iframe */}
             <div className="flex-1 bg-[#0a0a0a] relative">
               <iframe
-                src="/sherlock/index.html"
+                src={`${import.meta.env.BASE_URL}sherlock/index.html`}
                 title="Sherlock OSINT Suite"
                 className="w-full h-full border-none"
               />
