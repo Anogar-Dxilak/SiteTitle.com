@@ -4,6 +4,7 @@ import { ExternalLink, AlertCircle, Clock, Ban } from 'lucide-react';
 const platformColors = {
   Instagram: '#E4405F',
   Twitter: '#1DA1F2',
+  'Twitter / X': '#1DA1F2',
   Facebook: '#1877F2',
   LinkedIn: '#0A66C2',
   TikTok: '#ff0050',
@@ -12,11 +13,19 @@ const platformColors = {
   Reddit: '#FF4500',
   Telegram: '#0088CC',
   Discord: '#5865F2',
+  HackTheBox: '#9fef00',
+  TryHackMe: '#00ff66',
+  DockerHub: '#2496ed',
+  Medium: '#00ab6c',
+  GitLab: '#fc6d26',
+  Twitch: '#9146ff',
+  'Dev.to': '#00ff66',
 };
 
 const platformIcons = {
   Instagram: '📷',
   Twitter: '🐦',
+  'Twitter / X': '🐦',
   Facebook: '📘',
   LinkedIn: '💼',
   TikTok: '🎵',
@@ -25,12 +34,21 @@ const platformIcons = {
   Reddit: '🤖',
   Telegram: '✈️',
   Discord: '🎮',
+  HackTheBox: '🟩',
+  TryHackMe: '🔥',
+  DockerHub: '🐳',
+  Medium: '📝',
+  GitLab: '🦊',
+  Twitch: '👾',
+  'Dev.to': '💻',
 };
 
 export default function ResultCard({ result, index = 0 }) {
-  const { platform, status, url, username, profile_name, bio, followers, response_time_ms } = result;
+  const platform = result.platform || result.name || 'Unknown';
+  const username = result.username || '';
+  const { status, url, profile_name, bio, followers, response_time_ms } = result;
   
-  const color = platformColors[platform] || '#666';
+  const color = platformColors[platform] || '#00ff66';
   const icon = platformIcons[platform] || '🌐';
   
   const statusLabels = {

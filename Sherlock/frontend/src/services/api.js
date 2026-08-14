@@ -16,25 +16,31 @@ const api = axios.create({
 });
 
 const generateMockResults = (username) => {
-  const allPlatforms = [
-    { name: 'GitHub', url: `https://github.com/${username}`, category: 'Coding', status: 'found', http_status: 200, response_time_ms: 142 },
-    { name: 'Twitter / X', url: `https://x.com/${username}`, category: 'Social', status: 'found', http_status: 200, response_time_ms: 210 },
-    { name: 'LinkedIn', url: `https://linkedin.com/in/${username}`, category: 'Professional', status: 'found', http_status: 200, response_time_ms: 185 },
-    { name: 'Medium', url: `https://medium.com/@${username}`, category: 'Blogging', status: 'found', http_status: 200, response_time_ms: 160 },
-    { name: 'Reddit', url: `https://reddit.com/user/${username}`, category: 'Community', status: 'found', http_status: 200, response_time_ms: 245 },
-    { name: 'Instagram', url: `https://instagram.com/${username}`, category: 'Social', status: 'found', http_status: 200, response_time_ms: 310 },
-    { name: 'Telegram', url: `https://t.me/${username}`, category: 'Messaging', status: 'found', http_status: 200, response_time_ms: 120 },
-    { name: 'HackTheBox', url: `https://hackthebox.com/${username}`, category: 'Cybersecurity', status: 'found', http_status: 200, response_time_ms: 275 },
-    { name: 'TryHackMe', url: `https://tryhackme.com/p/${username}`, category: 'Cybersecurity', status: 'found', http_status: 200, response_time_ms: 198 },
-    { name: 'DockerHub', url: `https://hub.docker.com/u/${username}`, category: 'DevOps', status: 'found', http_status: 200, response_time_ms: 230 },
-    { name: 'Dev.to', url: `https://dev.to/${username}`, category: 'Coding', status: 'not_found', http_status: 404, response_time_ms: 110 },
-    { name: 'GitLab', url: `https://gitlab.com/${username}`, category: 'Coding', status: 'not_found', http_status: 404, response_time_ms: 135 },
-    { name: 'Twitch', url: `https://twitch.tv/${username}`, category: 'Streaming', status: 'not_found', http_status: 404, response_time_ms: 175 },
+  const targetUser = username || 'target';
+  const rawPlatforms = [
+    { platform: 'GitHub', url: `https://github.com/${targetUser}`, category: 'Coding', status: 'found', http_status: 200, response_time_ms: 142 },
+    { platform: 'Twitter / X', url: `https://x.com/${targetUser}`, category: 'Social', status: 'found', http_status: 200, response_time_ms: 210 },
+    { platform: 'LinkedIn', url: `https://linkedin.com/in/${targetUser}`, category: 'Professional', status: 'found', http_status: 200, response_time_ms: 185 },
+    { platform: 'Medium', url: `https://medium.com/@${targetUser}`, category: 'Blogging', status: 'found', http_status: 200, response_time_ms: 160 },
+    { platform: 'Reddit', url: `https://reddit.com/user/${targetUser}`, category: 'Community', status: 'found', http_status: 200, response_time_ms: 245 },
+    { platform: 'Instagram', url: `https://instagram.com/${targetUser}`, category: 'Social', status: 'found', http_status: 200, response_time_ms: 310 },
+    { platform: 'Telegram', url: `https://t.me/${targetUser}`, category: 'Messaging', status: 'found', http_status: 200, response_time_ms: 120 },
+    { platform: 'HackTheBox', url: `https://hackthebox.com/${targetUser}`, category: 'Cybersecurity', status: 'found', http_status: 200, response_time_ms: 275 },
+    { platform: 'TryHackMe', url: `https://tryhackme.com/p/${targetUser}`, category: 'Cybersecurity', status: 'found', http_status: 200, response_time_ms: 198 },
+    { platform: 'DockerHub', url: `https://hub.docker.com/u/${targetUser}`, category: 'DevOps', status: 'found', http_status: 200, response_time_ms: 230 },
+    { platform: 'Dev.to', url: `https://dev.to/${targetUser}`, category: 'Coding', status: 'not_found', http_status: 404, response_time_ms: 110 },
+    { platform: 'GitLab', url: `https://gitlab.com/${targetUser}`, category: 'Coding', status: 'not_found', http_status: 404, response_time_ms: 135 },
+    { platform: 'Twitch', url: `https://twitch.tv/${targetUser}`, category: 'Streaming', status: 'not_found', http_status: 404, response_time_ms: 175 },
   ];
+
+  const allPlatforms = rawPlatforms.map(p => ({
+    ...p,
+    username: targetUser,
+  }));
 
   return {
     search_id: `search_${Date.now()}`,
-    username: username,
+    username: targetUser,
     total_checked: allPlatforms.length,
     total_found: allPlatforms.filter(p => p.status === 'found').length,
     duration_ms: 1250,
