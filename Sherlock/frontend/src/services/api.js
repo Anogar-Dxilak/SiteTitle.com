@@ -1,10 +1,15 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000/api';
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
+// Dynamic API Base: Uses environment variable if set, otherwise uses localhost for dev or relative /api
+const API_BASE = import.meta.env.VITE_API_BASE || 
+  (isLocalhost ? 'http://localhost:8000/api' : '/api');
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 5000,
+  timeout: isLocalhost ? 5000 : 2000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -39,6 +44,11 @@ const generateMockResults = (username) => {
 
 // Search API
 export const searchUsername = async (username, platforms = null) => {
+  // On static live deployment (like GitHub Pages) without custom VITE_API_BASE, return instant simulation results
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return generateMockResults(username);
+  }
+
   try {
     const response = await api.post('/search/username', {
       username,
@@ -52,6 +62,16 @@ export const searchUsername = async (username, platforms = null) => {
 };
 
 export const searchByFace = async (file, engines = null) => {
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return {
+      search_id: `face_${Date.now()}`,
+      face_results: [
+        { name: 'Google Lens Match', confidence: 0.94, image_url: '', sample_url: 'https://images.google.com' },
+        { name: 'Yandex Visual Match', confidence: 0.88, image_url: '', sample_url: 'https://yandex.com/images' }
+      ]
+    };
+  }
+
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -77,6 +97,10 @@ export const searchByFace = async (file, engines = null) => {
 };
 
 export const getPlatforms = async () => {
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return ['GitHub', 'Twitter / X', 'LinkedIn', 'Medium', 'Reddit', 'Instagram', 'Telegram', 'HackTheBox', 'TryHackMe', 'DockerHub'];
+  }
+
   try {
     const response = await api.get('/search/platforms');
     return response.data;
@@ -87,6 +111,10 @@ export const getPlatforms = async () => {
 
 // History API
 export const getHistory = async (limit = 20, offset = 0) => {
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return [];
+  }
+
   try {
     const response = await api.get('/history/', {
       params: { limit, offset },
@@ -98,6 +126,10 @@ export const getHistory = async (limit = 20, offset = 0) => {
 };
 
 export const getStats = async () => {
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return { total_searches: 154, total_found: 890, active_engines: 32 };
+  }
+
   try {
     const response = await api.get('/history/stats');
     return response.data;
@@ -107,6 +139,10 @@ export const getStats = async () => {
 };
 
 export const clearHistory = async () => {
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    return { status: 'success' };
+  }
+
   try {
     const response = await api.delete('/history/');
     return response.data;
@@ -117,7 +153,11 @@ export const clearHistory = async () => {
 
 // WebSocket connection for real-time search
 export const createSearchWebSocket = (searchType = 'username') => {
-  const wsUrl = `ws://localhost:8000/api/search/ws/${searchType}`;
+  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
+    throw new Error('WebSocket disabled on static host');
+  }
+  const wsHost = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${wsHost}//localhost:8000/api/search/ws/${searchType}`;
   return new WebSocket(wsUrl);
 };
 
