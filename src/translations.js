@@ -7,7 +7,9 @@ export const TRANSLATIONS = {
       education: 'Eğitim',
       projects: 'Projeler',
       references: 'Referanslar',
-      feedback: 'Geri Bildirim'
+      feedback: 'Geri Bildirim',
+      contact: 'İletişim',
+      bookMeeting: 'Toplantı Ayarla'
     },
     about: {
       name: 'Egemen Der',
@@ -198,7 +200,9 @@ export const TRANSLATIONS = {
       education: 'Education',
       projects: 'Projects',
       references: 'References',
-      feedback: 'Feedback'
+      feedback: 'Feedback',
+      contact: 'Contact',
+      bookMeeting: 'Book a Meeting'
     },
     about: {
       name: 'Egemen Der',
@@ -262,7 +266,7 @@ export const TRANSLATIONS = {
     education: {
       sectionTitle: 'Education & Certifications',
       school: 'Iskenderun Technical University',
-      degree: 'B.S. Computer Engineering',
+      degree: 'Computer Engineering',
       date: '2020 - 2025',
       focusLabel: '🎯 Focus:',
       focus: 'Offensive Cybersecurity, Network & System Defense',

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import CyberAttackBg from './components/CyberAttackBg';
 import FeedbackSection from './components/FeedbackSection';
 import { TRANSLATIONS } from './translations';
+import { PopupButton } from 'react-calendly';
 
 // Home dizini yolu
 const HOME_DIR = '/home/egemen';
@@ -1184,7 +1185,7 @@ export default function App() {
           </div>
         </div>
 
-        <nav className="relative z-10 flex flex-wrap justify-center gap-x-3 sm:gap-x-6 gap-y-1.5 sm:gap-y-2 font-mono text-[11px] sm:text-sm w-full">
+        <nav className="relative z-10 flex flex-wrap justify-center items-center gap-x-3 sm:gap-x-6 gap-y-1.5 sm:gap-y-2 font-mono text-[11px] sm:text-sm w-full">
           <a href="#about" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.about}</a>
           <a href="#skills" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.skills}</a>
           <a href="#experience" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.experience}</a>
@@ -1192,6 +1193,12 @@ export default function App() {
           <a href="#projects" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.projects}</a>
           <a href="#references" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.references}</a>
           <a href="#feedback" className="text-gray-300 hover:text-[#00ff66] underline underline-offset-4 decoration-gray-700/80 hover:decoration-[#00ff66] transition">{t.nav.feedback}</a>
+          <PopupButton
+            url="https://calendly.com/egemender/new-meeting"
+            rootElement={document.getElementById("root")}
+            text={t.nav.bookMeeting}
+            className="text-[#00ff66] font-bold hover:text-white underline underline-offset-4 decoration-[#00ff66]/80 hover:decoration-white transition ml-2"
+          />
         </nav>
       </header>
 
@@ -1291,6 +1298,16 @@ export default function App() {
                       </svg>
                       <span>GitHub</span>
                     </a>
+                    
+                    {/* CALENDLY BUTTON */}
+                    <div className="w-full sm:w-auto mt-2 sm:mt-0 sm:ml-auto">
+                      <PopupButton
+                        url="https://calendly.com/egemender/new-meeting"
+                        rootElement={document.getElementById("root")}
+                        text={t.nav.bookMeeting}
+                        className="text-xs bg-[#00ff66]/10 border border-[#00ff66]/40 text-[#00ff66] hover:bg-[#00ff66]/20 px-4 py-1.5 rounded-lg transition-all flex items-center justify-center font-bold shadow-[0_0_8px_rgba(0,255,102,0.2)]"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1347,15 +1364,25 @@ export default function App() {
             <h2 className="text-sm font-mono uppercase tracking-widest border-b border-gray-955 pb-2" style={{ color: '#00ff66' }}>{t.education.sectionTitle}</h2>
             
             <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
-                <div>
-                  <h3 className="font-bold text-base" style={{ color: '#ffffff' }}>{t.education.school}</h3>
-                  <p className="text-sm text-gray-400 font-mono mt-0.5">{t.education.degree}</p>
-                  <p className="text-xs text-gray-500 font-mono mt-1">{t.education.focusLabel} {t.education.focus}</p>
-                  <p className="text-xs text-gray-500 font-mono mt-0.5">👥 {t.education.activities}</p>
-                  <p className="text-xs text-gray-500 font-mono mt-0.5">👥 {t.education.activities2}</p>
+              <div className="flex flex-col items-center text-center p-4 bg-[#141414] border border-gray-800/60 rounded-lg space-y-2.5">
+                <div className="flex flex-wrap items-center justify-center gap-2.5">
+                  <h3 className="font-bold text-base sm:text-lg" style={{ color: '#ffffff' }}>{t.education.school}</h3>
+                  <span className="text-xs font-mono bg-gray-950 text-[#00ff66] px-2.5 py-0.5 rounded border border-gray-800">{t.education.date}</span>
                 </div>
-                <span className="text-xs font-mono bg-gray-950 text-gray-400 px-2.5 py-1 rounded border border-gray-800 self-start">{t.education.date}</span>
+                <p className="text-sm text-gray-300 font-mono">{t.education.degree}</p>
+                <div className="flex flex-wrap justify-center items-center gap-2 pt-1 text-xs text-gray-400 font-mono">
+                  <span className="bg-gray-950/70 border border-gray-800/80 px-3 py-1 rounded-md text-gray-300">
+                    {t.education.focusLabel} {t.education.focus}
+                  </span>
+                </div>
+                <div className="flex flex-wrap justify-center items-center gap-2 pt-0.5 text-xs text-gray-400 font-mono">
+                  <span className="bg-gray-950/50 border border-gray-800/60 px-2.5 py-1 rounded-md">
+                    👥 {t.education.activities}
+                  </span>
+                  <span className="bg-gray-950/50 border border-gray-800/60 px-2.5 py-1 rounded-md">
+                    👥 {t.education.activities2}
+                  </span>
+                </div>
               </div>
 
               {/* Sertifikalar Grid */}
