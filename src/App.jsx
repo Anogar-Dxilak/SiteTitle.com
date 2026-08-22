@@ -1147,7 +1147,7 @@ export default function App() {
     <div className="min-h-screen bg-[#0a0a0a] text-gray-300 font-sans selection:bg-[#00ff66] selection:text-black">
       
       {/* HEADER WITH MULTI-LANGUAGE SWITCHER */}
-      <header className="border-b border-gray-900 bg-[#0f0f0f]/85 backdrop-blur sticky top-0 z-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col items-center gap-2 sm:gap-2.5 overflow-hidden relative">
+      <header className="border-b border-gray-900 bg-[#0f0f0f]/85 backdrop-blur sm:sticky sm:top-0 z-50 px-4 sm:px-6 py-3 sm:py-4 flex flex-col items-center gap-2 sm:gap-2.5 overflow-hidden relative">
         <CyberAttackBg />
         <div className="relative z-10 flex items-center justify-between w-full max-w-7xl">
           <div className="hidden sm:block w-24"></div>
@@ -1298,16 +1298,7 @@ export default function App() {
                       </svg>
                       <span>GitHub</span>
                     </a>
-                    
-                    {/* CALENDLY BUTTON */}
-                    <div className="w-full sm:w-auto mt-2 sm:mt-0 sm:ml-auto">
-                      <PopupButton
-                        url="https://calendly.com/egemender/new-meeting"
-                        rootElement={document.getElementById("root")}
-                        text={t.nav.bookMeeting}
-                        className="text-xs bg-[#00ff66]/10 border border-[#00ff66]/40 text-[#00ff66] hover:bg-[#00ff66]/20 px-4 py-1.5 rounded-lg transition-all flex items-center justify-center font-bold shadow-[0_0_8px_rgba(0,255,102,0.2)]"
-                      />
-                    </div>
+
                   </div>
                 </div>
               </div>
