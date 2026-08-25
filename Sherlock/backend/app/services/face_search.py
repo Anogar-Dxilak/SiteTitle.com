@@ -176,7 +176,8 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "Referer": "https://yandex.com/images/",
         }
         
         async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
@@ -189,41 +190,61 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
                 "request": json.dumps({"blocks": [{"block": "b-page_type_search-by-image__link"}]}),
             }
             
-            post_timeout = aiohttp.ClientTimeout(total=8, connect=3)
-            async with session.post(
-                "https://yandex.com/images/search",
-                params=params,
-                data=form,
-                timeout=post_timeout,
-            ) as response:
-                if response.status == 200:
-                    data = await response.json()
-                    blocks = data.get("blocks", [])
-                    if blocks and isinstance(blocks[0], dict) and "params" in blocks[0]:
-                        cbir_id = blocks[0]["params"].get("cbirId")
-                        orig_img = blocks[0]["params"].get("originalImageUrl")
-                        
-                        if cbir_id:
-                            # Fetch sites page (Pages containing exact image) with fast timeout
-                            sites_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites"
-                            sites_timeout = aiohttp.ClientTimeout(total=5, connect=2)
-                            async with session.get(sites_url, timeout=sites_timeout) as s_resp:
-                                if s_resp.status == 200:
-                                    html = await s_resp.text()
-                                    _parse_yandex_html(html, orig_img, social_results, web_results, seen_urls)
+            post_timeout = aiohttp.ClientTimeout(total=10, connect=5)
+            cbir_id = None
+            orig_img = None
 
-                            # Reference link to Yandex search page
-                            direct_yandex_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}"
-                            web_results.append(FaceSearchResult(
-                                source_engine="yandex",
-                                platform="Yandex Engine",
-                                platform_icon="🔍",
-                                title="Yandex Visual Search Results Page",
-                                url=direct_yandex_url,
-                                thumbnail_url=orig_img,
-                                description="Direct link to full Yandex visual search page for this photo.",
-                                is_social_profile=False,
-                            ))
+            # Step 1: Upload image to get cbir_id
+            try:
+                async with session.post(
+                    "https://yandex.com/images/search",
+                    params=params,
+                    data=form,
+                    timeout=post_timeout,
+                ) as response:
+                    if response.status == 200:
+                        data = await response.json()
+                        blocks = data.get("blocks", [])
+                        if blocks and isinstance(blocks[0], dict) and "params" in blocks[0]:
+                            cbir_id = blocks[0]["params"].get("cbirId")
+                            orig_img = blocks[0]["params"].get("originalImageUrl")
+            except Exception as e:
+                import logging
+                logging.getLogger("sherlock").warning(f"Yandex upload error: {e}")
+
+            if cbir_id:
+                fetch_timeout = aiohttp.ClientTimeout(total=8, connect=3)
+                
+                # Step 2: Fetch MULTIPLE result pages in parallel for maximum coverage
+                pages_to_fetch = [
+                    f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites",
+                    f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}",
+                    f"https://yandex.com.tr/gorsel/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites",
+                ]
+                
+                async def fetch_and_parse(url):
+                    try:
+                        async with session.get(url, timeout=fetch_timeout) as resp:
+                            if resp.status == 200:
+                                html = await resp.text()
+                                _parse_yandex_html(html, orig_img, social_results, web_results, seen_urls)
+                    except Exception:
+                        pass
+                
+                await asyncio.gather(*[fetch_and_parse(u) for u in pages_to_fetch], return_exceptions=True)
+
+                # Always add direct Yandex link as last result
+                direct_yandex_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}"
+                web_results.append(FaceSearchResult(
+                    source_engine="yandex",
+                    platform="Yandex Engine",
+                    platform_icon="🔍",
+                    title="Yandex Visual Search Results Page",
+                    url=direct_yandex_url,
+                    thumbnail_url=orig_img,
+                    description="Direct link to full Yandex visual search page for this photo.",
+                    is_social_profile=False,
+                ))
 
     except Exception as e:
         web_results.append(FaceSearchResult(
@@ -241,20 +262,23 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
 
 def _parse_yandex_html(html: str, default_thumb: Optional[str], social_results: List[FaceSearchResult], web_results: List[FaceSearchResult], seen_urls: set):
     """Parse links from Yandex HTML pages and categorize into Social vs Web results."""
+    import urllib.parse
+    logger = __import__("logging").getLogger("sherlock.parser")
+
     try:
         soup = BeautifulSoup(html, "lxml")
         
-        # Parse CbirSites items
-        items = soup.find_all("div", class_="CbirSites-Item")
-        for item in items[:25]:
+        # ── Strategy 1: CbirSites-Item divs (classic Yandex structure) ──
+        items = soup.find_all("div", class_=re.compile(r"CbirSites", re.IGNORECASE))
+        for item in items[:30]:
             try:
-                link = item.find("a")
+                link = item.find("a", href=True)
                 if not link:
                     continue
                 url = link.get("href", "")
                 title = link.get_text(strip=True)
                 
-                desc_el = item.find("div", class_="CbirSites-ItemDescription")
+                desc_el = item.find("div", class_=re.compile(r"Description|Snippet|Text", re.IGNORECASE))
                 desc = desc_el.get_text(strip=True) if desc_el else None
                 
                 img_el = item.find("img")
@@ -262,41 +286,116 @@ def _parse_yandex_html(html: str, default_thumb: Optional[str], social_results: 
                 if thumb and thumb.startswith("//"):
                     thumb = f"https:{thumb}"
                 
-                if url and url not in seen_urls and url.startswith("http"):
-                    # Extract actual URL if it's a Yandex redirect
-                    import urllib.parse
-                    if "yandex." in url and "img_url=" in url:
-                        parsed = urllib.parse.urlparse(url)
-                        qs = urllib.parse.parse_qs(parsed.query)
-                        if "img_url" in qs:
-                            url = qs["img_url"][0]
-
-                    # Filter out obvious junk/ad domains that yandex likes to push
-                    junk_domains = ["yandex.", "yastatic.", "w3.org", "schema.org", "pinterest", "aliexpress", "amazon", "ebay"]
-                    if any(j in url.lower() for j in junk_domains):
-                        continue
-
-                    seen_urls.add(url)
-                    platform, icon, is_social, username = _analyze_link(url, title)
-                    
-                    res = FaceSearchResult(
-                        source_engine="yandex",
-                        platform=platform,
-                        platform_icon=icon,
-                        title=title or f"{platform} Match",
-                        username=username,
-                        url=url,
-                        thumbnail_url=thumb,
-                        description=desc or f"Matched profile/page on {platform}",
-                        is_social_profile=is_social,
-                    )
-                    
-                    if is_social:
-                        social_results.append(res)
-                    else:
-                        web_results.append(res)
+                _process_url(url, title, desc, thumb, default_thumb, social_results, web_results, seen_urls)
             except Exception:
                 continue
 
-    except Exception:
-        pass
+        # ── Strategy 2: Any <a> tag linking to a known social media domain ──
+        all_links = soup.find_all("a", href=True)
+        for link in all_links:
+            try:
+                url = link.get("href", "")
+                title = link.get_text(strip=True)
+                
+                # Check if this URL points to a social media domain
+                url_lower = url.lower()
+                is_interesting = any(domain in url_lower for domain in SOCIAL_DOMAINS.keys())
+                
+                if is_interesting:
+                    _process_url(url, title, None, default_thumb, default_thumb, social_results, web_results, seen_urls)
+            except Exception:
+                continue
+
+        # ── Strategy 3: Extract from JSON-LD / data attributes ──
+        scripts = soup.find_all("script", type="application/json")
+        for script in scripts:
+            try:
+                data = json.loads(script.string or "{}")
+                _extract_from_json(data, default_thumb, social_results, web_results, seen_urls)
+            except Exception:
+                continue
+
+        # ── Strategy 4: data-bem attributes (Yandex BEM framework) ──
+        bem_elements = soup.find_all(attrs={"data-bem": True})
+        for el in bem_elements:
+            try:
+                bem_data = json.loads(el.get("data-bem", "{}"))
+                _extract_from_json(bem_data, default_thumb, social_results, web_results, seen_urls)
+            except Exception:
+                continue
+
+        logger.info(f"Parsed {len(social_results)} social + {len(web_results)} web results from HTML ({len(html)} bytes)")
+
+    except Exception as e:
+        logger.warning(f"HTML parse error: {e}")
+
+
+def _process_url(url: str, title: str, desc: Optional[str], thumb: Optional[str], default_thumb: Optional[str], 
+                 social_results: List[FaceSearchResult], web_results: List[FaceSearchResult], seen_urls: set):
+    """Process a single URL: clean it, classify it, and add to results."""
+    import urllib.parse
+    
+    if not url or not url.startswith("http"):
+        return
+    
+    # Extract actual URL if it's a Yandex redirect
+    if "yandex." in url and ("img_url=" in url or "url=" in url):
+        parsed = urllib.parse.urlparse(url)
+        qs = urllib.parse.parse_qs(parsed.query)
+        if "img_url" in qs:
+            url = qs["img_url"][0]
+        elif "url" in qs:
+            url = qs["url"][0]
+
+    # Filter out junk domains
+    junk_domains = ["yandex.", "yastatic.", "w3.org", "schema.org", "aliexpress", "amazon", "ebay", "avatars.mds", "captcha"]
+    if any(j in url.lower() for j in junk_domains):
+        return
+    
+    if url in seen_urls:
+        return
+    
+    seen_urls.add(url)
+    platform, icon, is_social, username = _analyze_link(url, title or "")
+    
+    res = FaceSearchResult(
+        source_engine="yandex",
+        platform=platform,
+        platform_icon=icon,
+        title=title or f"{platform} Match",
+        username=username,
+        url=url,
+        thumbnail_url=thumb or default_thumb,
+        description=desc or f"Matched profile/page on {platform}",
+        is_social_profile=is_social,
+    )
+    
+    if is_social:
+        social_results.append(res)
+    else:
+        web_results.append(res)
+
+
+def _extract_from_json(data, default_thumb, social_results, web_results, seen_urls):
+    """Recursively extract URLs from nested JSON structures (Yandex data-bem, JSON-LD, etc.)."""
+    if isinstance(data, dict):
+        # Check for url/href/link keys
+        for key in ("url", "href", "link", "originalUrl", "pageUrl"):
+            val = data.get(key)
+            if isinstance(val, str) and val.startswith("http"):
+                title = data.get("title", data.get("text", data.get("snippet", "")))
+                thumb = data.get("thumb", data.get("image", data.get("img", default_thumb)))
+                if thumb and isinstance(thumb, dict):
+                    thumb = thumb.get("url", thumb.get("src", default_thumb))
+                _process_url(val, title or "", None, thumb, default_thumb, social_results, web_results, seen_urls)
+        
+        # Recurse into values
+        for v in data.values():
+            if isinstance(v, (dict, list)):
+                _extract_from_json(v, default_thumb, social_results, web_results, seen_urls)
+    
+    elif isinstance(data, list):
+        for item in data[:50]:  # limit recursion
+            if isinstance(item, (dict, list)):
+                _extract_from_json(item, default_thumb, social_results, web_results, seen_urls)
+
