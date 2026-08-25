@@ -135,9 +135,11 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             seen_urls.add(norm_url)
             unique_results.append(r)
 
-    logger.info(f"Total raw unique results (Google + Yandex): {len(unique_results)}")
+    # Filter strictly for social profiles
+    social_candidates = [r for r in unique_results if r.is_social_profile]
+    logger.info(f"Found {len(social_candidates)} candidate social profiles (from {len(unique_results)} total)")
 
-    # Extract facial embedding of the uploaded target face
+    # Extract facial embedding of target face
     target_img = cv2.imread(image_path)
     target_face_feature = None
     if target_img is not None:
@@ -145,51 +147,44 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
 
     verified_results: List[FaceSearchResult] = []
 
-    # SFace AI Biometric Face Verification with Semaphore to strictly cap RAM < 120MB
-    if target_face_feature is not None and len(unique_results) > 0:
-        sem = asyncio.Semaphore(2)  # max 2 concurrent memory allocations
-        connector = aiohttp.TCPConnector(ssl=False, limit=4)
+    # Parallel fast SFace verification on social candidates only (takes < 1s)
+    if target_face_feature is not None and len(social_candidates) > 0:
+        connector = aiohttp.TCPConnector(ssl=False, limit=8)
         async with aiohttp.ClientSession(connector=connector) as session:
             
             async def verify_single_result(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    if res.is_social_profile:
-                        verified_results.append(res)
+                    verified_results.append(res)
                     return
 
-                async with sem:
-                    img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=2.0)
+                try:
+                    img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=1.5)
                     if img_bytes:
                         is_match, similarity = compare_faces(target_face_feature, img_bytes)
                         res.similarity_score = round(similarity, 2)
                         
-                        if is_match or similarity >= 0.45:
-                            verified_results.append(res)
-                        elif res.is_social_profile and similarity >= 0.35:
+                        if is_match or similarity >= 0.35:
                             verified_results.append(res)
                         del img_bytes
                     else:
-                        if res.is_social_profile:
-                            verified_results.append(res)
+                        verified_results.append(res)
+                except Exception:
+                    verified_results.append(res)
 
-            tasks = [verify_single_result(r) for r in unique_results[:12]]
+            tasks = [verify_single_result(r) for r in social_candidates[:10]]
             await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Keep remaining social profiles
-            for r in unique_results[12:]:
-                if r.is_social_profile and r not in verified_results:
+            for r in social_candidates[10:]:
+                if r not in verified_results:
                     verified_results.append(r)
         
         import gc
         gc.collect()
     else:
-        verified_results = unique_results
+        verified_results = social_candidates
 
-    # SADECE VE SADECE GERÇEK SOSYAL MEDYA HESAPLARI
-    social_only_results = [r for r in verified_results if r.is_social_profile]
-
-    # Sort results: Highest AI similarity social profiles first
-    social_only_results.sort(
+    # Sort results: High similarity social profiles first
+    verified_results.sort(
         key=lambda r: (
             1 if (r.similarity_score or 0) >= 0.50 else 0,
             r.similarity_score or 0.0
@@ -203,9 +198,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(social_only_results),
+        total_found=len(verified_results),
         total_checked=2,
-        face_results=social_only_results,
+        face_results=verified_results,
         duration_ms=elapsed_ms,
     )
 
@@ -357,7 +352,7 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
                 "request": json.dumps({"blocks": [{"block": "b-page_type_search-by-image__link"}]}),
             }
             
-            post_timeout = aiohttp.ClientTimeout(total=8, connect=3)
+            post_timeout = aiohttp.ClientTimeout(total=4.5, connect=2.0)
             cbir_id = None
             orig_img = None
 
@@ -379,24 +374,17 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
                 logger.warning(f"Yandex upload error: {e}")
 
             if cbir_id:
-                fetch_timeout = aiohttp.ClientTimeout(total=8, connect=3)
+                fetch_timeout = aiohttp.ClientTimeout(total=3.5, connect=1.5)
                 
-                # Fetch result pages (sites page and main visual search page)
-                pages_to_fetch = [
-                    f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites",
-                    f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}",
-                ]
-                
-                async def fetch_and_parse(url):
-                    try:
-                        async with session.get(url, timeout=fetch_timeout) as resp:
-                            if resp.status == 200:
-                                html = await resp.text()
-                                _parse_yandex_results(html, orig_img, results, seen_urls)
-                    except Exception:
-                        pass
-                
-                await asyncio.gather(*[fetch_and_parse(u) for u in pages_to_fetch], return_exceptions=True)
+                # Fetch result page
+                sites_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites"
+                try:
+                    async with session.get(sites_url, timeout=fetch_timeout) as resp:
+                        if resp.status == 200:
+                            html = await resp.text()
+                            _parse_yandex_results(html, orig_img, results, seen_urls)
+                except Exception:
+                    pass
 
     except Exception as e:
         logger.warning(f"Yandex search error: {e}")
