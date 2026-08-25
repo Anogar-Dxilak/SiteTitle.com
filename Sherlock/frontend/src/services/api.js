@@ -3,13 +3,14 @@ import axios from 'axios';
 const isLocalhost = typeof window !== 'undefined' && 
   (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-// Dynamic API Base: Uses environment variable if set, otherwise uses localhost for dev or relative /api
-const API_BASE = import.meta.env.VITE_API_BASE || 
-  (isLocalhost ? 'http://localhost:8000/api' : '/api');
+// Live Render.com Backend URL
+const LIVE_BACKEND_URL = 'https://sherlock-api-0mu3.onrender.com';
+
+const API_BASE = import.meta.env.VITE_API_BASE || `${LIVE_BACKEND_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: isLocalhost ? 5000 : 2000,
+  timeout: 45000, // Render free tier can take up to 30-40s on cold start
   headers: {
     'Content-Type': 'application/json',
   },
@@ -50,11 +51,6 @@ const generateMockResults = (username) => {
 
 // Search API
 export const searchUsername = async (username, platforms = null) => {
-  // On static live deployment (like GitHub Pages) without custom VITE_API_BASE, return instant simulation results
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return generateMockResults(username);
-  }
-
   try {
     const response = await api.post('/search/username', {
       username,
@@ -62,47 +58,25 @@ export const searchUsername = async (username, platforms = null) => {
     });
     return response.data;
   } catch (err) {
-    console.warn('Backend unavailable, using fallback search for:', username);
+    console.warn('Backend search error, using fallback:', err);
     return generateMockResults(username);
   }
 };
 
 export const searchByFace = async (file, engines = null) => {
-  const realisticMockResults = {
+  const fallbackResults = {
     search_id: `face_${Date.now()}`,
     face_results: [
       {
-        platform: 'LinkedIn',
-        platform_icon: '💼',
-        title: 'Egemen Der - Software Engineer',
-        username: 'egemen-der',
-        url: 'https://linkedin.com/in/egemen-der',
-        description: 'Software Developer | Cyber Security Enthusiast. Found exact facial match in profile picture.',
-        is_social_profile: true,
-      },
-      {
-        platform: 'GitHub',
-        platform_icon: '🐙',
-        title: 'egemender',
-        username: 'egemender',
-        url: 'https://github.com/egemender',
-        description: 'Developer profile picture match (92% structural similarity).',
-        is_social_profile: true,
-      },
-      {
-        platform: 'Tech Blog',
-        platform_icon: '📰',
-        title: 'Cyber Security Hackathon Winners 2024',
-        url: 'https://example-news.com/tech/hackathon-2024',
-        description: 'Image match found in article gallery: "Winning team presenting their project."',
+        platform: 'Yandex Engine',
+        platform_icon: '🔍',
+        title: 'Yandex Visual Search',
+        url: 'https://yandex.com/images/',
+        description: 'Direct link to search on Yandex (server fallback).',
         is_social_profile: false,
       }
     ]
   };
-
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return realisticMockResults;
-  }
 
   try {
     const formData = new FormData();
@@ -118,15 +92,12 @@ export const searchByFace = async (file, engines = null) => {
     });
     return response.data;
   } catch (err) {
-    return realisticMockResults;
+    console.error('Face search backend error:', err);
+    return fallbackResults;
   }
 };
 
 export const getPlatforms = async () => {
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return ['GitHub', 'Twitter / X', 'LinkedIn', 'Medium', 'Reddit', 'Instagram', 'Telegram', 'HackTheBox', 'TryHackMe', 'DockerHub'];
-  }
-
   try {
     const response = await api.get('/search/platforms');
     return response.data;
@@ -137,10 +108,6 @@ export const getPlatforms = async () => {
 
 // History API
 export const getHistory = async (limit = 20, offset = 0) => {
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return [];
-  }
-
   try {
     const response = await api.get('/history/', {
       params: { limit, offset },
@@ -152,10 +119,6 @@ export const getHistory = async (limit = 20, offset = 0) => {
 };
 
 export const getStats = async () => {
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return { total_searches: 154, total_found: 890, active_engines: 32 };
-  }
-
   try {
     const response = await api.get('/history/stats');
     return response.data;
@@ -165,10 +128,6 @@ export const getStats = async () => {
 };
 
 export const clearHistory = async () => {
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return { status: 'success' };
-  }
-
   try {
     const response = await api.delete('/history/');
     return response.data;
@@ -179,12 +138,9 @@ export const clearHistory = async () => {
 
 // WebSocket connection for real-time search
 export const createSearchWebSocket = (searchType = 'username') => {
-  if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    throw new Error('WebSocket disabled on static host');
-  }
-  const wsHost = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsHost}//localhost:8000/api/search/ws/${searchType}`;
+  const wsUrl = `wss://sherlock-api-0mu3.onrender.com/api/search/ws/${searchType}`;
   return new WebSocket(wsUrl);
 };
 
 export default api;
+
