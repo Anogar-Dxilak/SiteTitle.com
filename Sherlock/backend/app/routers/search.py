@@ -83,19 +83,21 @@ async def search_by_face_photo(
     if engines:
         search_engines = [e.strip() for e in engines.split(",")]
     
-    # Perform search and ensure temporary file is deleted afterwards for security
+    # Perform search and ensure all temporary files are deleted afterwards for security
     try:
         result = await search_by_face(
             image_path=file_path,
             search_engines=search_engines,
         )
     finally:
-        # Secure Cleanup: Delete temporary uploaded image from disk
-        if os.path.exists(file_path):
-            try:
-                os.remove(file_path)
-            except Exception:
-                pass
+        # Secure Cleanup: Delete temporary uploaded image and cropped face from disk
+        crop_path = f"{file_path}_cropped_face.jpg"
+        for p in [file_path, crop_path]:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
     
     # Save to history
     search_history.insert(0, {
