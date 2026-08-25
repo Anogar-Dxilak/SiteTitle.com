@@ -8,5 +8,16 @@ export default defineConfig({
   build: {
     outDir: '../../public/sherlock',
     emptyOutDir: true,
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    }
+  },
+  optimizeDeps: {
+    include: ['@mediapipe/face_detection']
+  },
+  resolve: {
+    alias: {
+      '@mediapipe/face_detection': '@mediapipe/face_detection/face_detection.js'
+    }
   }
 })

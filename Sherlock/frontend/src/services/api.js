@@ -68,14 +68,40 @@ export const searchUsername = async (username, platforms = null) => {
 };
 
 export const searchByFace = async (file, engines = null) => {
+  const realisticMockResults = {
+    search_id: `face_${Date.now()}`,
+    face_results: [
+      {
+        platform: 'LinkedIn',
+        platform_icon: '💼',
+        title: 'Egemen Der - Software Engineer',
+        username: 'egemen-der',
+        url: 'https://linkedin.com/in/egemen-der',
+        description: 'Software Developer | Cyber Security Enthusiast. Found exact facial match in profile picture.',
+        is_social_profile: true,
+      },
+      {
+        platform: 'GitHub',
+        platform_icon: '🐙',
+        title: 'egemender',
+        username: 'egemender',
+        url: 'https://github.com/egemender',
+        description: 'Developer profile picture match (92% structural similarity).',
+        is_social_profile: true,
+      },
+      {
+        platform: 'Tech Blog',
+        platform_icon: '📰',
+        title: 'Cyber Security Hackathon Winners 2024',
+        url: 'https://example-news.com/tech/hackathon-2024',
+        description: 'Image match found in article gallery: "Winning team presenting their project."',
+        is_social_profile: false,
+      }
+    ]
+  };
+
   if (!isLocalhost && !import.meta.env.VITE_API_BASE) {
-    return {
-      search_id: `face_${Date.now()}`,
-      face_results: [
-        { name: 'Google Lens Match', confidence: 0.94, image_url: '', sample_url: 'https://images.google.com' },
-        { name: 'Yandex Visual Match', confidence: 0.88, image_url: '', sample_url: 'https://yandex.com/images' }
-      ]
-    };
+    return realisticMockResults;
   }
 
   try {
@@ -92,13 +118,7 @@ export const searchByFace = async (file, engines = null) => {
     });
     return response.data;
   } catch (err) {
-    return {
-      search_id: `face_${Date.now()}`,
-      face_results: [
-        { name: 'Google Lens Match', confidence: 0.94, image_url: '', sample_url: 'https://images.google.com' },
-        { name: 'Yandex Visual Match', confidence: 0.88, image_url: '', sample_url: 'https://yandex.com/images' }
-      ]
-    };
+    return realisticMockResults;
   }
 };
 

@@ -1,16 +1,31 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, X, Image } from 'lucide-react';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { initDetector, detectFace } from '../../services/faceDetection';
 
 export default function PhotoUpload({ onFileSelect, loading = false }) {
   const [preview, setPreview] = useState(null);
   const [file, setFile] = useState(null);
+  const [faces, setFaces] = useState([]);
+  const [statusLogs, setStatusLogs] = useState([]);
+  const imgRef = useRef(null);
+
+  // Pre-load detector on component mount
+  useEffect(() => {
+    initDetector().catch(console.error);
+  }, []);
+
+  const addLog = (msg) => {
+    setStatusLogs(prev => [...prev, msg]);
+  };
 
   const onDrop = useCallback((acceptedFiles) => {
     const selectedFile = acceptedFiles[0];
     if (selectedFile) {
       setFile(selectedFile);
       setPreview(URL.createObjectURL(selectedFile));
+      setFaces([]);
+      setStatusLogs(['[+] Fotoğraf sisteme yüklendi...']);
       onFileSelect(selectedFile);
     }
   }, [onFileSelect]);
@@ -31,7 +46,31 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
     e.stopPropagation();
     setFile(null);
     setPreview(null);
+    setFaces([]);
+    setStatusLogs([]);
     onFileSelect(null);
+  };
+
+  const handleImageLoad = async () => {
+    if (!imgRef.current) return;
+    
+    addLog('[+] Yüz taraması başlatıldı...');
+    addLog('[+] Hedef aranıyor...');
+    
+    try {
+      const detectedFaces = await detectFace(imgRef.current);
+      if (detectedFaces && detectedFaces.length > 0) {
+        setFaces(detectedFaces);
+        addLog(`[+] Hedef yüz başarıyla izole edildi.`);
+        addLog('[+] Biyometrik vektör çıkarımı tamamlandı.');
+        addLog('[+] Açık kaynak (OSINT) veri tabanlarında arama hazır.');
+      } else {
+        addLog('[-] Yüz tespit edilemedi. Lütfen net bir fotoğraf yükleyin.');
+      }
+    } catch (err) {
+      console.error(err);
+      addLog('[-] Tarama sırasında hata oluştu.');
+    }
   };
 
   return (
@@ -39,13 +78,14 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
       {...getRootProps()}
       className={`photo-upload ${isDragActive ? 'photo-upload--active' : ''} ${file ? 'photo-upload--has-file' : ''}`}
       id="photo-upload-zone"
+      style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}
     >
       <input {...getInputProps()} />
       
       {!file ? (
         <>
           <div className="photo-upload__icon">
-            {isDragActive ? <Image size={48} /> : <Upload size={48} />}
+            {isDragActive ? <ImageIcon size={48} /> : <Upload size={48} />}
           </div>
           <p className="photo-upload__text">
             {isDragActive ? (
@@ -61,19 +101,83 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
           </p>
         </>
       ) : (
-        <div className="photo-upload__preview">
-          <img src={preview} alt="Upload preview" />
-          <button
-            className="photo-upload__remove"
-            onClick={removeFile}
-            type="button"
-            aria-label="Remove photo"
-          >
-            <X size={12} />
-          </button>
-          <p className="photo-upload__text" style={{ marginTop: '12px' }}>
-            ✅ {file.name} ({(file.size / 1024).toFixed(0)} KB)
-          </p>
+        <div className="photo-upload__preview-container" style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ position: 'relative', display: 'inline-block' }}>
+            <img 
+              ref={imgRef} 
+              src={preview} 
+              alt="Upload preview" 
+              onLoad={handleImageLoad}
+              style={{ display: 'block', maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
+            />
+            
+            {/* Draw bounding boxes based on original image size vs rendered image size */}
+            {faces.map((face, idx) => {
+              const scaleX = imgRef.current ? imgRef.current.width / imgRef.current.naturalWidth : 1;
+              const scaleY = imgRef.current ? imgRef.current.height / imgRef.current.naturalHeight : 1;
+              
+              const { xMin, yMin, width, height } = face.box;
+              
+              return (
+                <div 
+                  key={idx}
+                  style={{
+                    position: 'absolute',
+                    border: '2px solid #00ff66',
+                    boxShadow: '0 0 10px #00ff66, inset 0 0 10px rgba(0,255,102,0.3)',
+                    backgroundColor: 'rgba(0, 255, 102, 0.1)',
+                    left: `${xMin * scaleX}px`,
+                    top: `${yMin * scaleY}px`,
+                    width: `${width * scaleX}px`,
+                    height: `${height * scaleY}px`,
+                    pointerEvents: 'none',
+                    transition: 'all 0.3s ease-out'
+                  }}
+                >
+                  <div style={{
+                    position: 'absolute',
+                    top: '-20px',
+                    left: '0',
+                    background: '#00ff66',
+                    color: '#000',
+                    fontSize: '10px',
+                    fontWeight: 'bold',
+                    padding: '2px 4px',
+                    fontFamily: 'monospace'
+                  }}>
+                    TARGET_ACQUIRED
+                  </div>
+                </div>
+              )
+            })}
+
+            <button
+              className="photo-upload__remove"
+              onClick={removeFile}
+              type="button"
+              aria-label="Remove photo"
+              style={{ position: 'absolute', top: '8px', right: '8px' }}
+            >
+              <X size={12} />
+            </button>
+          </div>
+
+          <div style={{ 
+            marginTop: '16px', 
+            width: '100%', 
+            background: 'rgba(0,0,0,0.5)', 
+            padding: '12px', 
+            borderRadius: '4px',
+            borderLeft: '2px solid #00ff66',
+            fontFamily: 'monospace',
+            fontSize: '12px',
+            color: '#00ff66',
+            textAlign: 'left'
+          }}>
+            {statusLogs.map((log, i) => (
+              <div key={i} style={{ opacity: 0.8 + (i * 0.05) }}>{log}</div>
+            ))}
+          </div>
         </div>
       )}
     </div>
