@@ -47,4 +47,11 @@ async def root():
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy"}
+    import os
+    has_key = bool(os.getenv("GOOGLE_VISION_API_KEY"))
+    key_preview = os.getenv("GOOGLE_VISION_API_KEY", "NOT_SET")[:8] + "..." if has_key else "NOT_SET"
+    return {
+        "status": "healthy",
+        "google_vision_key_configured": has_key,
+        "key_preview": key_preview,
+    }
