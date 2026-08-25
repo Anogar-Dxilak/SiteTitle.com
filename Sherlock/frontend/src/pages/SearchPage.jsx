@@ -31,6 +31,13 @@ export default function SearchPage() {
     reset,
   } = useSearch();
 
+  const handleFileSelect = useCallback((file) => {
+    setSelectedFile(file);
+    if (file) {
+      reset();
+    }
+  }, [reset]);
+
   const handleUsernameSearch = useCallback((username) => {
     toast.loading(`Searching for "${username}"...`, { id: 'search' });
     
@@ -152,7 +159,7 @@ export default function SearchPage() {
                 transition={{ duration: 0.2 }}
               >
                 <PhotoUpload
-                  onFileSelect={setSelectedFile}
+                  onFileSelect={handleFileSelect}
                   loading={loading}
                 />
                 <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
