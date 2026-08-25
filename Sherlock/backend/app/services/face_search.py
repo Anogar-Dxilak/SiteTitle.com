@@ -111,12 +111,47 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     logger = logging.getLogger("sherlock.search")
     
     raw_results: List[FaceSearchResult] = await _search_google_vision(image_path)
-    
     logger.info(f"Total raw results from Google Vision: {len(raw_results)}")
-    for r in raw_results:
-        logger.info(f"  -> [{r.platform}] {r.title} | {r.url} | social={r.is_social_profile}")
+    
+    target_img = cv2.imread(image_path)
+    target_face_feature = None
+    if target_img is not None:
+        target_face_feature = extract_face_crop(target_img)
 
-    verified_results = raw_results
+    verified_results: List[FaceSearchResult] = []
+
+    # AI Verification: filter out random people using SFace embedding matching
+    if target_face_feature is not None and len(raw_results) > 0:
+        connector = aiohttp.TCPConnector(ssl=False)
+        async with aiohttp.ClientSession(connector=connector) as session:
+            
+            async def verify_single_result(res: FaceSearchResult):
+                if not res.thumbnail_url:
+                    # Keep if social, otherwise drop
+                    if res.is_social_profile:
+                        verified_results.append(res)
+                    return
+
+                img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=4)
+                if img_bytes:
+                    is_match, similarity = compare_faces(target_face_feature, img_bytes)
+                    res.similarity_score = round(similarity, 2)
+                    
+                    # SFace verification threshold (normalized score >= 0.65 or is_match)
+                    if is_match or similarity >= 0.65:
+                        verified_results.append(res)
+                    else:
+                        logger.info(f"Filtered out non-matching face ({similarity:.2f}): {res.url}")
+                else:
+                    # If thumbnail download failed but it's a social profile, keep with lower rank
+                    if res.is_social_profile:
+                        verified_results.append(res)
+
+            tasks = [verify_single_result(r) for r in raw_results[:30]]
+            await asyncio.gather(*tasks, return_exceptions=True)
+    else:
+        verified_results = raw_results
+
     verified_results.sort(
         key=lambda r: (r.is_social_profile, r.similarity_score or 0.0),
         reverse=True
@@ -179,23 +214,8 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                             return []
                         
                         web_detection = responses[0].get("webDetection", {})
-                        
                         if not web_detection:
-                            logger.warning("Google Vision returned no webDetection data")
                             return []
-                        
-                        # Web Entities (General context - who/what is in the photo)
-                        entities = web_detection.get("webEntities", [])
-                        logger.info(f"Google Vision found {len(entities)} web entities")
-                        for e in entities[:5]:
-                            logger.info(f"  Entity: {e.get('description', 'N/A')} (score: {e.get('score', 0):.2f})")
-                        
-                        top_entity_desc = None
-                        for ent in entities:
-                            desc = ent.get("description")
-                            if desc and len(desc) > 1:
-                                top_entity_desc = desc
-                                break
 
                         # 1. Pages with matching images
                         pages = web_detection.get("pagesWithMatchingImages", [])
@@ -215,7 +235,6 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                             seen_urls.add(url)
                             platform, icon, is_social, username = _analyze_link(url, title)
                             
-                            # Thumbnail extraction
                             full_matching = page.get("fullMatchingImages", [])
                             partial_matching = page.get("partialMatchingImages", [])
                             thumb = None
@@ -223,27 +242,24 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                                 thumb = full_matching[0].get("url")
                             elif partial_matching:
                                 thumb = partial_matching[0].get("url")
-                                
-                            display_title = title
-                            if top_entity_desc and top_entity_desc.lower() not in (title or "").lower():
-                                display_title = f"{top_entity_desc} — {title}" if title else top_entity_desc
+
+                            display_title = title if title else (f"@{username}" if username else f"{platform} Profile")
 
                             res = FaceSearchResult(
                                 source_engine="google_vision",
                                 platform=platform,
                                 platform_icon=icon,
-                                title=display_title or f"{platform} Match",
+                                title=display_title,
                                 username=username,
                                 url=url,
                                 thumbnail_url=thumb,
-                                description=f"Matched via Google Vision ({platform})",
+                                description=f"Matched on {platform}",
                                 is_social_profile=is_social,
                             )
                             results.append(res)
                         
                         # 2. Full & Partial Matching Images (Direct image matches)
                         direct_matches = web_detection.get("fullMatchingImages", []) + web_detection.get("partialMatchingImages", [])
-                        logger.info(f"Google Vision found {len(direct_matches)} full/partial direct image matches")
                         for match in direct_matches:
                             img_url = match.get("url")
                             if not img_url or img_url in seen_urls:
@@ -251,7 +267,7 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                             seen_urls.add(img_url)
                             
                             platform, icon, is_social, username = _analyze_link(img_url, "")
-                            display_title = f"{top_entity_desc} (Direct Image Match)" if top_entity_desc else f"{platform} Image Match"
+                            display_title = f"@{username}" if username else f"{platform} Image Match"
                             
                             results.append(FaceSearchResult(
                                 source_engine="google_vision",
@@ -261,13 +277,12 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                                 username=username,
                                 url=img_url,
                                 thumbnail_url=img_url,
-                                description=f"Direct facial image match indexed by Google",
+                                description=f"Direct facial image match",
                                 is_social_profile=is_social,
                             ))
 
-                        # 3. Visually Similar Images (Similar faces across web & social media)
+                        # 3. Visually Similar Images
                         similar_images = web_detection.get("visuallySimilarImages", [])
-                        logger.info(f"Google Vision found {len(similar_images)} visually similar images")
                         for sim in similar_images[:15]:
                             sim_url = sim.get("url")
                             if not sim_url or sim_url in seen_urls:
@@ -275,7 +290,7 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                             seen_urls.add(sim_url)
                             
                             platform, icon, is_social, username = _analyze_link(sim_url, "")
-                            display_title = f"{top_entity_desc} (Visual Match)" if top_entity_desc else f"{platform} Visual Match"
+                            display_title = f"@{username}" if username else f"{platform} Visual Match"
                             
                             results.append(FaceSearchResult(
                                 source_engine="google_vision",
@@ -285,7 +300,7 @@ async def _search_google_vision(image_path: str) -> List[FaceSearchResult]:
                                 username=username,
                                 url=sim_url,
                                 thumbnail_url=sim_url,
-                                description=f"Visually similar face found on {platform}",
+                                description=f"Visually similar face on {platform}",
                                 is_social_profile=is_social,
                             ))
                             
