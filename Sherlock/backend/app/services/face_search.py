@@ -123,24 +123,25 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             
             async def verify_single_result(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    if res.is_social_profile:
-                        verified_results.append(res)
+                    verified_results.append(res)
                     return
 
                 img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=3)
                 if img_bytes:
                     is_match, similarity = compare_faces(target_face_crop, img_bytes)
-                    if is_match or res.is_social_profile:
-                        res.similarity_score = similarity
-                        verified_results.append(res)
+                    res.similarity_score = similarity
+                    # We keep ALL results, but assign similarity score if possible
+                    verified_results.append(res)
                 else:
-                    if res.is_social_profile:
-                        verified_results.append(res)
+                    verified_results.append(res)
 
-            # Limit candidate verification to top 10 items for speed
-            candidates_to_check = raw_results[:10]
-            tasks = [verify_single_result(r) for r in candidates_to_check]
+            # Check all results but don't filter them out
+            tasks = [verify_single_result(r) for r in raw_results[:15]]
             await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Add remaining unverified results
+            for r in raw_results[15:]:
+                verified_results.append(r)
     else:
         verified_results = raw_results
 
