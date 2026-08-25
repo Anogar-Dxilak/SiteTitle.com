@@ -147,6 +147,7 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     logger.info(f"Found {len(social_candidates)} social + {len(web_candidates)} web candidates")
 
     verified_social: List[FaceSearchResult] = []
+    unverified_social: List[FaceSearchResult] = []
 
     # Parallel fast SFace verification on social candidates (takes < 1s)
     if target_face_feature is not None and len(social_candidates) > 0:
@@ -155,22 +156,25 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             
             async def verify_single_social(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    # Ignore candidates without thumbnails as they are likely spam or unverified
+                    unverified_social.append(res)
                     return
 
                 try:
-                    img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=1.5)
+                    img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=2.0)
                     if img_bytes:
                         is_match, similarity = compare_faces(target_face_feature, img_bytes)
                         res.similarity_score = round(similarity, 2)
-                        # Allow through if face match OR above strict threshold
-                        if is_match or similarity >= 0.35:
+                        if is_match or similarity >= 0.30:
                             verified_social.append(res)
+                        else:
+                            unverified_social.append(res)
                         del img_bytes
+                    else:
+                        unverified_social.append(res)
                 except Exception:
-                    pass
+                    unverified_social.append(res)
 
-            tasks = [verify_single_social(r) for r in social_candidates[:24]]
+            tasks = [verify_single_social(r) for r in social_candidates[:30]]
             await asyncio.gather(*tasks, return_exceptions=True)
         
         import gc
@@ -178,7 +182,7 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     else:
         verified_social = social_candidates
 
-    # Sort social profiles by AI similarity
+    # Sort verified social profiles by AI similarity
     verified_social.sort(
         key=lambda r: (
             1 if (r.similarity_score or 0) >= 0.50 else 0,
@@ -187,16 +191,29 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         reverse=True
     )
 
-    # SADECE VE SADECE DOĞRULANMIŞ SOSYAL MEDYA HESAPLARI (Web/medya sayfaları tamamen yok)
+    # Combine: Verified social profiles first, then other social profiles, then relevant web matches
+    combined_results: List[FaceSearchResult] = []
+    combined_results.extend(verified_social)
+    
+    # If few verified social profiles, add unverified social profiles
+    for s in unverified_social:
+        if s not in combined_results:
+            combined_results.append(s)
+            
+    # Add top web matches (e.g. news, blogs, pages where this image/person appears)
+    for w in web_candidates[:30]:
+        if w not in combined_results:
+            combined_results.append(w)
+
     elapsed_ms = int((time.time() - start_time) * 1000)
     
     return SearchResponse(
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(verified_social),
+        total_found=len(combined_results),
         total_checked=2,
-        face_results=verified_social,
+        face_results=combined_results,
         duration_ms=elapsed_ms,
     )
 

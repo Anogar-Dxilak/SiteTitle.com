@@ -295,11 +295,16 @@ export default function SearchPage() {
           >
             <div className="search-summary" style={{ marginBottom: '24px' }}>
               <div className="search-summary__left">
-                <div className="search-summary__query">Visual Social Media Intelligence</div>
+                <div className="search-summary__query">Visual Search Intelligence</div>
                 <div className="search-summary__stats">
                   <span className="search-summary__stat">
-                    <strong style={{ color: 'var(--accent-green)' }}>{faceResults.length}</strong> matched social profiles
+                    <strong style={{ color: 'var(--accent-green)' }}>{faceResults.length}</strong> total matches found
                   </span>
+                  {faceResults.filter(r => r.is_social_profile).length > 0 && (
+                    <span className="search-summary__stat">
+                      <strong style={{ color: 'var(--accent-cyan)' }}>{faceResults.filter(r => r.is_social_profile).length}</strong> social profiles
+                    </span>
+                  )}
                 </div>
               </div>
               <button className="btn btn--ghost btn--sm" onClick={handleExport}>
@@ -308,26 +313,52 @@ export default function SearchPage() {
             </div>
 
             {/* Social Profiles Section */}
-            <div style={{ marginBottom: '28px' }}>
-              <h3 style={{
-                fontSize: '0.85rem',
-                color: 'var(--accent-cyan)',
-                fontWeight: 800,
-                textTransform: 'uppercase',
-                letterSpacing: '1.5px',
-                marginBottom: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-              }}>
-                <span>🎯</span> Matched Social Profiles ({faceResults.length})
-              </h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {faceResults.map((result, i) => (
-                  <FaceResultCard key={`social-${result.url}-${i}`} result={result} index={i} />
-                ))}
+            {faceResults.filter(r => r.is_social_profile).length > 0 && (
+              <div style={{ marginBottom: '28px' }}>
+                <h3 style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--accent-cyan)',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <span>🎯</span> Matched Social Profiles ({faceResults.filter(r => r.is_social_profile).length})
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {faceResults.filter(r => r.is_social_profile).map((result, i) => (
+                    <FaceResultCard key={`social-${result.url}-${i}`} result={result} index={i} />
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* Web Matches Section */}
+            {faceResults.filter(r => !r.is_social_profile).length > 0 && (
+              <div style={{ marginBottom: '28px' }}>
+                <h3 style={{
+                  fontSize: '0.85rem',
+                  color: 'var(--text-muted)',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '1.5px',
+                  marginBottom: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                }}>
+                  <span>🌐</span> Web Matches & Source Pages ({faceResults.filter(r => !r.is_social_profile).length})
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {faceResults.filter(r => !r.is_social_profile).map((result, i) => (
+                    <FaceResultCard key={`web-${result.url}-${i}`} result={result} index={i} />
+                  ))}
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
 
@@ -336,9 +367,9 @@ export default function SearchPage() {
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <GlassCard style={{ textAlign: 'center', padding: '32px 24px', marginTop: '20px' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🎯</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px' }}>Sosyal Medya Eşleşmesi Bulunamadı</h3>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px' }}>Sonuç Bulunamadı</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto' }}>
-                Yüklediğiniz fotoğraf için açık kaynaklarda (LinkedIn, Instagram, X, TikTok vb.) doğrudan bir sosyal medya profili bulunamadı. Farklı bir açıdan çekilmiş veya net bir vesikalık fotoğraf deneyebilirsiniz.
+                Yüklediğiniz fotoğraf için internet üzerinde eşleşen bir sayfa veya profil bulunamadı. Farklı veya daha net bir fotoğraf deneyebilirsiniz.
               </p>
             </GlassCard>
           </motion.div>
