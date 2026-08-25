@@ -105,7 +105,7 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     import logging
     logger = logging.getLogger("sherlock.search")
     
-    engines = search_engines or ["google_vision"]
+    engines = search_engines or ["google_vision", "yandex"]
     raw_results: List[FaceSearchResult] = []
     
     for engine in engines:
