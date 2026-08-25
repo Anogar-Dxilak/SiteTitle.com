@@ -15,10 +15,17 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: list[str] = [
+        "https://www.egemender.com.tr",
+        "https://egemender.com.tr",
+        "http://www.egemender.com.tr",
+        "http://egemender.com.tr",
+        "https://anogar-dxilak.github.io",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
         "http://localhost:3000",
         "http://127.0.0.1:3000",
+        "http://localhost:8000",
+        "*",
     ]
     
     # Search Settings
