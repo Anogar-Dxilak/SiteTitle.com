@@ -73,7 +73,7 @@ async def search_by_face(
 ) -> SearchResponse:
     """
     Search for a face/image across reverse image search engines (Yandex + Google Vision)
-    with SFace Deep Learning face verification.
+    with SFace Deep Learning face verification. Fast and optimized.
     """
     search_id = generate_search_id()
     start_time = time.time()
@@ -81,26 +81,17 @@ async def search_by_face(
     try:
         return await asyncio.wait_for(
             _execute_face_search(search_id, image_path, search_engines, start_time),
-            timeout=25.0
+            timeout=35.0
         )
     except asyncio.TimeoutError:
         elapsed_ms = int((time.time() - start_time) * 1000)
-        fallback_res = FaceSearchResult(
-            source_engine="yandex",
-            platform="Yandex Engine",
-            platform_icon="🔍",
-            title="Yandex Direct Image Search",
-            url="https://yandex.com/images/",
-            description="Search timed out. Click to open Yandex Visual Search directly.",
-            is_social_profile=False,
-        )
         return SearchResponse(
             search_id=search_id,
             search_type="face",
             query=Path(image_path).name,
-            total_found=1,
+            total_found=0,
             total_checked=2,
-            face_results=[fallback_res],
+            face_results=[],
             duration_ms=elapsed_ms,
         )
 
@@ -110,10 +101,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     logger = logging.getLogger("sherlock.search")
     
     # Generate an isolated, optimized portrait crop of the face
-    # so search engines focus 100% on facial features without background noise
     search_image_path = create_optimized_face_crop(image_path)
     
-    # Run both Google Vision & Yandex in parallel using the focused face crop
+    # Run both Google Vision & Yandex in parallel with fast timeouts
     results_gv, results_yx = await asyncio.gather(
         _search_google_vision(search_image_path),
         _search_yandex(search_image_path),
@@ -130,7 +120,6 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     unique_results: List[FaceSearchResult] = []
     seen_urls = set()
     for r in raw_results:
-        # Normalize URL
         norm_url = re.sub(r'\?.*$', '', r.url).rstrip('/')
         if norm_url and norm_url not in seen_urls:
             seen_urls.add(norm_url)
@@ -146,47 +135,45 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
 
     verified_results: List[FaceSearchResult] = []
 
-    # SFace AI Biometric Face Verification
+    # SFace AI Biometric Face Verification (Parallel fast check on top 15 candidates)
     if target_face_feature is not None and len(unique_results) > 0:
         connector = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(connector=connector) as session:
             
             async def verify_single_result(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    # If social profile without downloadable thumbnail, keep it
                     if res.is_social_profile:
                         verified_results.append(res)
                     return
 
-                img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=4)
+                img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=2.5)
                 if img_bytes:
                     is_match, similarity = compare_faces(target_face_feature, img_bytes)
                     res.similarity_score = round(similarity, 2)
                     
-                    # SFace match threshold: Normalized similarity >= 0.50 or is_match
-                    if is_match or similarity >= 0.50:
+                    if is_match or similarity >= 0.45:
                         verified_results.append(res)
-                    elif res.is_social_profile and similarity >= 0.40:
-                        # Slightly relaxed for low-res social thumbnails
+                    elif res.is_social_profile and similarity >= 0.35:
                         verified_results.append(res)
-                    else:
-                        logger.debug(f"Filtered non-matching face ({similarity:.2f}): {res.url}")
                 else:
                     if res.is_social_profile:
                         verified_results.append(res)
 
-            tasks = [verify_single_result(r) for r in unique_results[:40]]
+            tasks = [verify_single_result(r) for r in unique_results[:15]]
             await asyncio.gather(*tasks, return_exceptions=True)
+            
+            # Also keep remaining social profiles that weren't in top 15
+            for r in unique_results[15:]:
+                if r.is_social_profile and r not in verified_results:
+                    verified_results.append(r)
     else:
         verified_results = unique_results
 
-    # Sadece ve sadece sosyal medya profillerini filtrele
-    social_only_results = [r for r in verified_results if r.is_social_profile]
-
-    # Sort results: Social profiles with highest AI similarity first
-    social_only_results.sort(
+    # Sort results: High similarity social profiles first
+    verified_results.sort(
         key=lambda r: (
-            1 if (r.similarity_score or 0) >= 0.50 else 0,
+            1 if r.is_social_profile and (r.similarity_score or 0) >= 0.50 else 0,
+            1 if r.is_social_profile else 0,
             r.similarity_score or 0.0
         ),
         reverse=True
@@ -198,9 +185,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(social_only_results),
+        total_found=len(verified_results),
         total_checked=2,
-        face_results=social_only_results,
+        face_results=verified_results,
         duration_ms=elapsed_ms,
     )
 
