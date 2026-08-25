@@ -73,7 +73,7 @@ export const searchByFace = async (file, engines = null) => {
     
     const response = await api.post('/search/face', formData, {
       headers: {
-        'Content-Type': 'multipart/form-data',
+        'Content-Type': undefined,
       },
     });
     return response.data;
