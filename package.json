@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build:sherlock": "npm --prefix Sherlock/frontend run build",
+    "build": "npm run build:sherlock && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
     "predeploy": "npm run build",
