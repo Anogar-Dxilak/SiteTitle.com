@@ -16,6 +16,26 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
     initDetector().catch(console.error);
   }, []);
 
+  // Handle resizing of the image to keep bounding boxes accurate
+  useEffect(() => {
+    const img = imgRef.current;
+    if (!img || !faces.length) return;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        if (imgRef.current && canvasRef.current && faces.length > 0) {
+          drawBoundingBoxes(faces);
+        }
+      });
+    });
+
+    observer.observe(img);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [faces]);
+
   const addLog = (msg) => {
     setStatusLogs(prev => [...prev, msg]);
   };
@@ -110,7 +130,9 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
       const detectedFaces = await detectFace(imgRef.current);
       if (detectedFaces && detectedFaces.length > 0) {
         setFaces(detectedFaces);
-        drawBoundingBoxes(detectedFaces);
+        requestAnimationFrame(() => {
+          drawBoundingBoxes(detectedFaces);
+        });
         addLog(`[+] Hedef yüz başarıyla izole edildi.`);
         addLog('[+] Biyometrik vektör çıkarımı tamamlandı.');
         addLog('[+] Açık kaynak (OSINT) veri tabanlarında arama hazır.');
