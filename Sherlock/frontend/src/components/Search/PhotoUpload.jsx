@@ -121,28 +121,19 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
               const naturalWidth = img.naturalWidth || displayedWidth;
               const naturalHeight = img.naturalHeight || displayedHeight;
               
-              // Detect if BlazeFace coordinates are normalized or in natural / rendered pixels
-              let { xMin, yMin, width, height } = face.box;
+              // BlazeFace coordinates are ALWAYS in natural image pixel coordinates
+              const scaleX = naturalWidth > 0 ? displayedWidth / naturalWidth : 1;
+              const scaleY = naturalHeight > 0 ? displayedHeight / naturalHeight : 1;
               
-              let left, top, boxWidth, boxHeight;
+              const { xMin, yMin, width, height } = face.box;
               
-              // If box coordinates exceed displayed size, scale down from natural size
-              if (xMin > displayedWidth || yMin > displayedHeight || width > displayedWidth) {
-                const scaleX = displayedWidth / naturalWidth;
-                const scaleY = displayedHeight / naturalHeight;
-                left = xMin * scaleX;
-                top = yMin * scaleY;
-                boxWidth = width * scaleX;
-                boxHeight = height * scaleY;
-              } else {
-                left = xMin;
-                top = yMin;
-                boxWidth = width;
-                boxHeight = height;
-              }
+              const left = xMin * scaleX;
+              const top = yMin * scaleY;
+              const boxWidth = width * scaleX;
+              const boxHeight = height * scaleY;
               
               // Add slight padding for visual framing
-              const padX = boxWidth * 0.1;
+              const padX = boxWidth * 0.12;
               const padY = boxHeight * 0.15;
               
               return (
@@ -156,8 +147,8 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
                     borderRadius: '4px',
                     left: `${Math.max(0, left - padX)}px`,
                     top: `${Math.max(0, top - padY)}px`,
-                    width: `${Math.min(displayedWidth - left, boxWidth + padX * 2)}px`,
-                    height: `${Math.min(displayedHeight - top, boxHeight + padY * 2)}px`,
+                    width: `${Math.min(displayedWidth - Math.max(0, left - padX), boxWidth + padX * 2)}px`,
+                    height: `${Math.min(displayedHeight - Math.max(0, top - padY), boxHeight + padY * 2)}px`,
                     pointerEvents: 'none',
                     transition: 'all 0.2s ease-out'
                   }}
@@ -173,7 +164,8 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
                     letterSpacing: '1px',
                     padding: '2px 6px',
                     borderRadius: '2px',
-                    fontFamily: 'monospace'
+                    fontFamily: 'monospace',
+                    whiteSpace: 'nowrap'
                   }}>
                     TARGET_ACQUIRED
                   </div>
