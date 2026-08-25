@@ -13,11 +13,10 @@ app = FastAPI(
     description="OSINT tool for finding social media profiles by username or face photo",
 )
 
-# CORS middleware - Allow GitHub Pages, localhost and all frontends
+# CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_origin_regex=r"https?://.*",
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,6 +52,7 @@ async def health_check():
     key_preview = os.getenv("GOOGLE_VISION_API_KEY", "NOT_SET")[:8] + "..." if has_key else "NOT_SET"
     return {
         "status": "healthy",
+        "version": "v2.5-strict-social-filter",
         "google_vision_key_configured": has_key,
         "key_preview": key_preview,
     }
