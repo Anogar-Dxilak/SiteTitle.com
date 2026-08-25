@@ -111,30 +111,20 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
               style={{ display: 'block', maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
             />
             
-            {/* Draw bounding boxes based on original image size vs rendered image size */}
+            {/* Draw bounding boxes based on normalized percentage coordinates */}
             {faces.map((face, idx) => {
-              const img = imgRef.current;
-              if (!img) return null;
+              if (!face.normalized) return null;
               
-              const displayedWidth = img.clientWidth || img.width;
-              const displayedHeight = img.clientHeight || img.height;
-              const naturalWidth = img.naturalWidth || displayedWidth;
-              const naturalHeight = img.naturalHeight || displayedHeight;
-              
-              // BlazeFace coordinates are ALWAYS in natural image pixel coordinates
-              const scaleX = naturalWidth > 0 ? displayedWidth / naturalWidth : 1;
-              const scaleY = naturalHeight > 0 ? displayedHeight / naturalHeight : 1;
-              
-              const { xMin, yMin, width, height } = face.box;
-              
-              const left = xMin * scaleX;
-              const top = yMin * scaleY;
-              const boxWidth = width * scaleX;
-              const boxHeight = height * scaleY;
+              const { x, y, width, height } = face.normalized;
               
               // Add slight padding for visual framing
-              const padX = boxWidth * 0.12;
-              const padY = boxHeight * 0.15;
+              const padX = width * 0.12;
+              const padY = height * 0.15;
+              
+              const leftPct = Math.max(0, (x - padX) * 100);
+              const topPct = Math.max(0, (y - padY) * 100);
+              const widthPct = Math.min(100 - leftPct, (width + padX * 2) * 100);
+              const heightPct = Math.min(100 - topPct, (height + padY * 2) * 100);
               
               return (
                 <div 
@@ -145,10 +135,10 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
                     boxShadow: '0 0 12px rgba(0, 255, 102, 0.6), inset 0 0 8px rgba(0, 255, 102, 0.2)',
                     backgroundColor: 'rgba(0, 255, 102, 0.08)',
                     borderRadius: '4px',
-                    left: `${Math.max(0, left - padX)}px`,
-                    top: `${Math.max(0, top - padY)}px`,
-                    width: `${Math.min(displayedWidth - Math.max(0, left - padX), boxWidth + padX * 2)}px`,
-                    height: `${Math.min(displayedHeight - Math.max(0, top - padY), boxHeight + padY * 2)}px`,
+                    left: `${leftPct}%`,
+                    top: `${topPct}%`,
+                    width: `${widthPct}%`,
+                    height: `${heightPct}%`,
                     pointerEvents: 'none',
                     transition: 'all 0.2s ease-out'
                   }}
