@@ -55,3 +55,19 @@ async def health_check():
         "google_vision_key_configured": has_key,
         "key_preview": key_preview,
     }
+
+
+@app.get("/api/test-yandex")
+async def test_yandex_endpoint():
+    import aiohttp
+    import json
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+    }
+    connector = aiohttp.TCPConnector(ssl=False)
+    async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
+        try:
+            async with session.get("https://yandex.com/images/", timeout=5) as r:
+                return {"status": r.status, "headers": dict(r.headers), "url": str(r.url)}
+        except Exception as e:
+            return {"error": str(e)}
