@@ -102,7 +102,7 @@ async def search_by_face(
 
 
 async def _execute_face_search(search_id: str, image_path: str, search_engines: Optional[List[str]], start_time: float) -> SearchResponse:
-    engines = search_engines or ["google_vision", "yandex"]
+    engines = search_engines or ["google_vision"]
     raw_results: List[FaceSearchResult] = []
     
     for engine in engines:
