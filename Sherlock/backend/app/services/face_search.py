@@ -135,26 +135,27 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             seen_urls.add(norm_url)
             unique_results.append(r)
 
-    # Filter strictly for social profiles
-    social_candidates = [r for r in unique_results if r.is_social_profile]
-    logger.info(f"Found {len(social_candidates)} candidate social profiles (from {len(unique_results)} total)")
-
     # Extract facial embedding of target face
     target_img = cv2.imread(image_path)
     target_face_feature = None
     if target_img is not None:
         target_face_feature = extract_face_crop(target_img)
 
-    verified_results: List[FaceSearchResult] = []
+    social_candidates = [r for r in unique_results if r.is_social_profile]
+    web_candidates = [r for r in unique_results if not r.is_social_profile]
+    
+    logger.info(f"Found {len(social_candidates)} social + {len(web_candidates)} web candidates")
 
-    # Parallel fast SFace verification on social candidates only (takes < 1s)
+    verified_social: List[FaceSearchResult] = []
+
+    # Parallel fast SFace verification on social candidates (takes < 1s)
     if target_face_feature is not None and len(social_candidates) > 0:
         connector = aiohttp.TCPConnector(ssl=False, limit=8)
         async with aiohttp.ClientSession(connector=connector) as session:
             
-            async def verify_single_result(res: FaceSearchResult):
+            async def verify_single_social(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    verified_results.append(res)
+                    verified_social.append(res)
                     return
 
                 try:
@@ -162,35 +163,37 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
                     if img_bytes:
                         is_match, similarity = compare_faces(target_face_feature, img_bytes)
                         res.similarity_score = round(similarity, 2)
-                        
                         if is_match or similarity >= 0.35:
-                            verified_results.append(res)
+                            verified_social.append(res)
                         del img_bytes
                     else:
-                        verified_results.append(res)
+                        verified_social.append(res)
                 except Exception:
-                    verified_results.append(res)
+                    verified_social.append(res)
 
-            tasks = [verify_single_result(r) for r in social_candidates[:10]]
+            tasks = [verify_single_social(r) for r in social_candidates[:12]]
             await asyncio.gather(*tasks, return_exceptions=True)
             
-            for r in social_candidates[10:]:
-                if r not in verified_results:
-                    verified_results.append(r)
+            for r in social_candidates[12:]:
+                if r not in verified_social:
+                    verified_social.append(r)
         
         import gc
         gc.collect()
     else:
-        verified_results = social_candidates
+        verified_social = social_candidates
 
-    # Sort results: High similarity social profiles first
-    verified_results.sort(
+    # Sort social profiles by AI similarity
+    verified_social.sort(
         key=lambda r: (
             1 if (r.similarity_score or 0) >= 0.50 else 0,
             r.similarity_score or 0.0
         ),
         reverse=True
     )
+
+    # Combine: Social profiles FIRST (top priority), then web matches
+    combined_results = verified_social + web_candidates[:15]
     
     elapsed_ms = int((time.time() - start_time) * 1000)
     
@@ -198,9 +201,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(verified_results),
+        total_found=len(combined_results),
         total_checked=2,
-        face_results=verified_results,
+        face_results=combined_results,
         duration_ms=elapsed_ms,
     )
 
