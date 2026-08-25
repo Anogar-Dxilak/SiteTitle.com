@@ -163,7 +163,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
                     if img_bytes:
                         is_match, similarity = compare_faces(target_face_feature, img_bytes)
                         res.similarity_score = round(similarity, 2)
-                        if is_match or similarity >= 0.35:
+                        # Allow through if face match OR above low threshold
+                        # Thumbnails from social profiles are often low-res, causing lower scores
+                        if is_match or similarity >= 0.20:
                             verified_social.append(res)
                         del img_bytes
                     else:
@@ -337,10 +339,11 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
         
         connector = aiohttp.TCPConnector(ssl=False)
         headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9,tr;q=0.8",
             "Referer": "https://yandex.com/images/",
+            "DNT": "1",
         }
         
         async with aiohttp.ClientSession(connector=connector, headers=headers) as session:
@@ -353,7 +356,7 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
                 "request": json.dumps({"blocks": [{"block": "b-page_type_search-by-image__link"}]}),
             }
             
-            post_timeout = aiohttp.ClientTimeout(total=4.5, connect=2.0)
+            post_timeout = aiohttp.ClientTimeout(total=8, connect=3.0)
             cbir_id = None
             orig_img = None
 
@@ -365,27 +368,58 @@ async def _search_yandex(image_path: str) -> List[FaceSearchResult]:
                     data=form,
                     timeout=post_timeout,
                 ) as response:
+                    resp_text = await response.text()
+                    logger.info(f"Yandex upload status: {response.status}, response length: {len(resp_text)}")
                     if response.status == 200:
-                        data = await response.json()
-                        blocks = data.get("blocks", [])
-                        if blocks and isinstance(blocks[0], dict) and "params" in blocks[0]:
-                            cbir_id = blocks[0]["params"].get("cbirId")
-                            orig_img = blocks[0]["params"].get("originalImageUrl")
+                        try:
+                            data = json.loads(resp_text)
+                            blocks = data.get("blocks", [])
+                            if blocks and isinstance(blocks[0], dict) and "params" in blocks[0]:
+                                cbir_id = blocks[0]["params"].get("cbirId")
+                                orig_img = blocks[0]["params"].get("originalImageUrl")
+                                logger.info(f"Got cbir_id: {cbir_id}")
+                        except json.JSONDecodeError:
+                            # Sometimes Yandex returns HTML instead of JSON
+                            logger.warning("Yandex returned non-JSON response for upload")
+                            # Try to extract cbir_id from HTML/redirect URL
+                            import re as re2
+                            cbir_match = re2.search(r'cbir_id=([^&"\']+)', resp_text)
+                            if cbir_match:
+                                cbir_id = cbir_match.group(1)
+                                logger.info(f"Extracted cbir_id from HTML: {cbir_id}")
             except Exception as e:
                 logger.warning(f"Yandex upload error: {e}")
 
             if cbir_id:
-                fetch_timeout = aiohttp.ClientTimeout(total=3.5, connect=1.5)
+                fetch_timeout = aiohttp.ClientTimeout(total=6, connect=2.5)
                 
-                # Fetch result page
+                # Fetch BOTH sites and similar pages in parallel for maximum coverage
                 sites_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=sites"
-                try:
-                    async with session.get(sites_url, timeout=fetch_timeout) as resp:
-                        if resp.status == 200:
-                            html = await resp.text()
-                            _parse_yandex_results(html, orig_img, results, seen_urls)
-                except Exception:
-                    pass
+                similar_url = f"https://yandex.com/images/search?rpt=imageview&cbir_id={cbir_id}&cbir_page=similar"
+                
+                async def fetch_page(url, page_type):
+                    try:
+                        async with session.get(url, timeout=fetch_timeout) as resp:
+                            logger.info(f"Yandex {page_type} page status: {resp.status}")
+                            if resp.status == 200:
+                                html = await resp.text()
+                                logger.info(f"Yandex {page_type} page length: {len(html)}")
+                                return html
+                    except Exception as e:
+                        logger.warning(f"Yandex {page_type} fetch error: {e}")
+                    return None
+                
+                htmls = await asyncio.gather(
+                    fetch_page(sites_url, "sites"),
+                    fetch_page(similar_url, "similar"),
+                    return_exceptions=True
+                )
+                
+                for html in htmls:
+                    if isinstance(html, str) and html:
+                        _parse_yandex_results(html, orig_img, results, seen_urls)
+            else:
+                logger.warning("No cbir_id obtained from Yandex upload")
 
     except Exception as e:
         logger.warning(f"Yandex search error: {e}")

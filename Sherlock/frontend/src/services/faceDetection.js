@@ -30,55 +30,57 @@ export const initDetector = async () => {
 
 /**
  * Detects faces in the given HTMLImageElement.
+ * Returns bounding boxes as fractions of the image's natural dimensions (0..1).
  * @param {HTMLImageElement} imageElement 
- * @returns {Promise<Array>} List of detected faces with bounding boxes
+ * @returns {Promise<Array>} List of detected faces with normalized bounding boxes
  */
 export const detectFace = async (imageElement) => {
   try {
     const currentDetector = await initDetector();
     if (!currentDetector) throw new Error("Detector not initialized");
 
-    const naturalW = imageElement.naturalWidth || imageElement.width || 1;
-    const naturalH = imageElement.naturalHeight || imageElement.height || 1;
+    // Use a canvas at the image's natural resolution so we control exactly
+    // what coordinate space BlazeFace operates in.
+    const natW = imageElement.naturalWidth || imageElement.width;
+    const natH = imageElement.naturalHeight || imageElement.height;
 
-    // By drawing the image to a canvas of exact intrinsic size, we:
-    // 1. Bypass any CSS scaling bugs where img.width is used by blazeface
-    // 2. Guarantee coordinates are in the exact [0..naturalW] space
-    // 3. Fix potential EXIF rotation bugs in some browsers
     const canvas = document.createElement('canvas');
-    canvas.width = naturalW;
-    canvas.height = naturalH;
+    canvas.width = natW;
+    canvas.height = natH;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(imageElement, 0, 0, naturalW, naturalH);
+    ctx.drawImage(imageElement, 0, 0, natW, natH);
 
+    // BlazeFace will read canvas.width / canvas.height which are natW / natH.
+    // So returned coordinates are in [0..natW] x [0..natH].
     const predictions = await currentDetector.estimateFaces(canvas, false);
 
+    console.log('[FaceDetection] canvas size:', natW, 'x', natH);
+    console.log('[FaceDetection] predictions:', JSON.stringify(predictions.map(p => ({
+      topLeft: [p.topLeft[0], p.topLeft[1]],
+      bottomRight: [p.bottomRight[0], p.bottomRight[1]],
+    }))));
+
     return predictions.map(pred => {
-      const start = pred.topLeft;
-      const end = pred.bottomRight;
-      const w = end[0] - start[0];
-      const h = end[1] - start[1];
-      
-      // Since we passed a canvas of size [naturalW, naturalH], 
-      // the coordinates are 100% guaranteed to be in this exact space.
-      const normX = naturalW > 0 ? start[0] / naturalW : 0;
-      const normY = naturalH > 0 ? start[1] / naturalH : 0;
-      const normW = naturalW > 0 ? w / naturalW : 0;
-      const normH = naturalH > 0 ? h / naturalH : 0;
-      
+      const x1 = pred.topLeft[0];
+      const y1 = pred.topLeft[1];
+      const x2 = pred.bottomRight[0];
+      const y2 = pred.bottomRight[1];
+
       return {
         score: pred.probability[0],
+        // Normalized 0..1 fractions of the natural image size
         normalized: {
-          x: Math.max(0, Math.min(1, normX)),
-          y: Math.max(0, Math.min(1, normY)),
-          width: Math.max(0, Math.min(1, normW)),
-          height: Math.max(0, Math.min(1, normH)),
+          x: x1 / natW,
+          y: y1 / natH,
+          width: (x2 - x1) / natW,
+          height: (y2 - y1) / natH,
         },
+        // Raw pixel coordinates in natural image space
         box: {
-          xMin: start[0],
-          yMin: start[1],
-          width: w,
-          height: h
+          xMin: x1,
+          yMin: y1,
+          width: x2 - x1,
+          height: y2 - y1,
         }
       };
     });

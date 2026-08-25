@@ -9,6 +9,7 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
   const [faces, setFaces] = useState([]);
   const [statusLogs, setStatusLogs] = useState([]);
   const imgRef = useRef(null);
+  const canvasRef = useRef(null);
 
   // Pre-load detector on component mount
   useEffect(() => {
@@ -51,6 +52,54 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
     onFileSelect(null);
   };
 
+  const drawBoundingBoxes = (detectedFaces) => {
+    const img = imgRef.current;
+    const canvas = canvasRef.current;
+    if (!img || !canvas || !detectedFaces.length) return;
+
+    // Set canvas internal resolution to match the displayed image size
+    const displayW = img.clientWidth;
+    const displayH = img.clientHeight;
+    canvas.width = displayW;
+    canvas.height = displayH;
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, displayW, displayH);
+
+    detectedFaces.forEach(face => {
+      if (!face.normalized) return;
+      const { x, y, width, height } = face.normalized;
+
+      // Map normalized (0..1) coordinates to displayed pixel coordinates
+      const pad = 0.12;
+      const bx = Math.max(0, (x - width * pad)) * displayW;
+      const by = Math.max(0, (y - height * pad)) * displayH;
+      const bw = Math.min(displayW - bx, (width * (1 + pad * 2)) * displayW);
+      const bh = Math.min(displayH - by, (height * (1 + pad * 2)) * displayH);
+
+      // Glow effect
+      ctx.shadowColor = 'rgba(0, 255, 102, 0.6)';
+      ctx.shadowBlur = 12;
+      ctx.strokeStyle = '#00ff66';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(bx, by, bw, bh);
+
+      // Semi-transparent fill
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = 'rgba(0, 255, 102, 0.08)';
+      ctx.fillRect(bx, by, bw, bh);
+
+      // Label
+      const label = 'TARGET_ACQUIRED';
+      ctx.font = '800 9px monospace';
+      const textW = ctx.measureText(label).width + 12;
+      ctx.fillStyle = '#00ff66';
+      ctx.fillRect(bx, by - 18, textW, 16);
+      ctx.fillStyle = '#000';
+      ctx.fillText(label, bx + 6, by - 6);
+    });
+  };
+
   const handleImageLoad = async () => {
     if (!imgRef.current) return;
     
@@ -61,6 +110,7 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
       const detectedFaces = await detectFace(imgRef.current);
       if (detectedFaces && detectedFaces.length > 0) {
         setFaces(detectedFaces);
+        drawBoundingBoxes(detectedFaces);
         addLog(`[+] Hedef yüz başarıyla izole edildi.`);
         addLog('[+] Biyometrik vektör çıkarımı tamamlandı.');
         addLog('[+] Açık kaynak (OSINT) veri tabanlarında arama hazır.');
@@ -111,57 +161,19 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
               style={{ display: 'block', maxWidth: '100%', maxHeight: '300px', borderRadius: '8px' }} 
             />
             
-            {/* Draw bounding boxes based on normalized percentage coordinates */}
-            {faces.map((face, idx) => {
-              if (!face.normalized) return null;
-              
-              const { x, y, width, height } = face.normalized;
-              
-              // Add slight padding for visual framing
-              const padX = width * 0.12;
-              const padY = height * 0.15;
-              
-              const leftPct = Math.max(0, (x - padX) * 100);
-              const topPct = Math.max(0, (y - padY) * 100);
-              const widthPct = Math.min(100 - leftPct, (width + padX * 2) * 100);
-              const heightPct = Math.min(100 - topPct, (height + padY * 2) * 100);
-              
-              return (
-                <div 
-                  key={idx}
-                  style={{
-                    position: 'absolute',
-                    border: '2px solid #00ff66',
-                    boxShadow: '0 0 12px rgba(0, 255, 102, 0.6), inset 0 0 8px rgba(0, 255, 102, 0.2)',
-                    backgroundColor: 'rgba(0, 255, 102, 0.08)',
-                    borderRadius: '4px',
-                    left: `${leftPct}%`,
-                    top: `${topPct}%`,
-                    width: `${widthPct}%`,
-                    height: `${heightPct}%`,
-                    pointerEvents: 'none',
-                    transition: 'all 0.2s ease-out'
-                  }}
-                >
-                  <div style={{
-                    position: 'absolute',
-                    top: '-20px',
-                    left: '-2px',
-                    background: '#00ff66',
-                    color: '#000',
-                    fontSize: '9px',
-                    fontWeight: '800',
-                    letterSpacing: '1px',
-                    padding: '2px 6px',
-                    borderRadius: '2px',
-                    fontFamily: 'monospace',
-                    whiteSpace: 'nowrap'
-                  }}>
-                    TARGET {Math.round(x * 100)}%,{Math.round(y * 100)}%
-                  </div>
-                </div>
-              );
-            })}
+            {/* Canvas overlay drawn to exactly match the displayed image size */}
+            <canvas
+              ref={canvasRef}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                pointerEvents: 'none',
+                borderRadius: '8px',
+              }}
+            />
 
             <button
               className="photo-upload__remove"
