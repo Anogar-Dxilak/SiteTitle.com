@@ -43,8 +43,6 @@ export const detectFace = async (imageElement) => {
     // Determine the actual coordinate dimensions used by TensorFlow
     const renderedW = imageElement.clientWidth || imageElement.width || 1;
     const renderedH = imageElement.clientHeight || imageElement.height || 1;
-    const naturalW = imageElement.naturalWidth || renderedW;
-    const naturalH = imageElement.naturalHeight || renderedH;
 
     return predictions.map(pred => {
       const start = pred.topLeft;
@@ -52,13 +50,15 @@ export const detectFace = async (imageElement) => {
       const w = end[0] - start[0];
       const h = end[1] - start[1];
       
-      // BlazeFace using tf.browser.fromPixels on an HTMLImageElement ALWAYS returns 
-      // coordinates relative to the image's intrinsic size (naturalWidth/naturalHeight),
-      // regardless of how the image is scaled via CSS on the screen.
-      const normX = naturalW > 0 ? start[0] / naturalW : 0;
-      const normY = naturalH > 0 ? start[1] / naturalH : 0;
-      const normW = naturalW > 0 ? w / naturalW : 0;
-      const normH = naturalH > 0 ? h / naturalH : 0;
+      // CRITICAL FIX: 
+      // BlazeFace internally scales its normalized bounding boxes [0..1] by `imageElement.width` and `imageElement.height`.
+      // In the browser, `img.width` returns the *RENDERED* layout width, not the natural intrinsic width.
+      // Therefore, `pred.topLeft` and `pred.bottomRight` are ALREADY in RENDERED pixels!
+      // To get the true percentage (0 to 1), we MUST divide by the rendered width/height.
+      const normX = start[0] / renderedW;
+      const normY = start[1] / renderedH;
+      const normW = w / renderedW;
+      const normH = h / renderedH;
       
       return {
         score: pred.probability[0],
