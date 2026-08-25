@@ -45,11 +45,18 @@ async def download_image_as_bytes(url: str, session: aiohttp.ClientSession, time
     return None
 
 
-def bytes_to_cv2_image(image_bytes: bytes) -> Optional[np.ndarray]:
-    """Convert raw image bytes to OpenCV BGR numpy array."""
+def bytes_to_cv2_image(image_bytes: bytes, max_dim: int = 320) -> Optional[np.ndarray]:
+    """Convert raw image bytes to OpenCV BGR numpy array with strict memory-safe downscaling."""
     try:
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return None
+        h, w = img.shape[:2]
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            new_w, new_h = int(w * scale), int(h * scale)
+            img = cv2.resize(img, (new_w, new_h), interpolation=cv2.INTER_AREA)
         return img
     except Exception as e:
         logger.debug(f"Failed to decode image: {e}")
@@ -59,7 +66,7 @@ def bytes_to_cv2_image(image_bytes: bytes) -> Optional[np.ndarray]:
 def create_optimized_face_crop(image_path: str) -> str:
     """
     Detects the primary face in the image and saves a nicely padded portrait crop.
-    If face is detected, returns path to the cropped image; otherwise returns original image_path.
+    Downsamples large images to keep RAM usage minimal.
     """
     if detector is None:
         return image_path
@@ -70,6 +77,11 @@ def create_optimized_face_crop(image_path: str) -> str:
             return image_path
             
         h, w = img.shape[:2]
+        if max(h, w) > 640:
+            scale = 640 / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            h, w = img.shape[:2]
+            
         detector.setInputSize((w, h))
         
         _, faces = detector.detect(img)
@@ -77,13 +89,12 @@ def create_optimized_face_crop(image_path: str) -> str:
             return image_path
             
         face = faces[0]
-        # face box: [x, y, width, height, ...]
         fx, fy, fw, fh = int(face[0]), int(face[1]), int(face[2]), int(face[3])
         
-        # Add 30% padding around face for natural portrait / headshot context
+        # Add 30% padding around face for natural portrait context
         pad_x = int(fw * 0.30)
-        pad_y_top = int(fh * 0.35)  # include hair/forehead
-        pad_y_bottom = int(fh * 0.25)  # include chin/neck
+        pad_y_top = int(fh * 0.35)
+        pad_y_bottom = int(fh * 0.25)
         
         x1 = max(0, fx - pad_x)
         y1 = max(0, fy - pad_y_top)
@@ -105,23 +116,26 @@ def create_optimized_face_crop(image_path: str) -> str:
 
 def extract_face_crop(img: np.ndarray) -> Optional[np.ndarray]:
     """
-    Extract the face FEATURE (embedding) directly using SFace instead of cropping.
-    Returns the 128D normalized feature vector as numpy array.
+    Extract the face FEATURE (embedding) directly using SFace.
+    Downscales large inputs to prevent RAM spikes.
     """
-    if detector is None or recognizer is None:
+    if detector is None or recognizer is None or img is None:
         return None
     
     try:
         h, w = img.shape[:2]
+        if max(h, w) > 640:
+            scale = 640 / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+            h, w = img.shape[:2]
+            
         detector.setInputSize((w, h))
         
         _, faces = detector.detect(img)
         if faces is None or len(faces) == 0:
             return None
         
-        # Take the most confident face (faces[0] because it's sorted or just the first)
-        face = faces[0]
-        aligned_face = recognizer.alignCrop(img, face)
+        aligned_face = recognizer.alignCrop(img, faces[0])
         feature = recognizer.feature(aligned_face)
         return feature
     except Exception as e:
@@ -132,26 +146,22 @@ def extract_face_crop(img: np.ndarray) -> Optional[np.ndarray]:
 def compare_faces(target_feature: np.ndarray, candidate_img_bytes: bytes) -> Tuple[bool, float]:
     """
     Compare candidate image with target face using Cosine Similarity of SFace embeddings.
+    Memory-safe and lightweight.
     """
     if recognizer is None or target_feature is None:
         return False, 0.0
 
-    candidate_img = bytes_to_cv2_image(candidate_img_bytes)
+    candidate_img = bytes_to_cv2_image(candidate_img_bytes, max_dim=320)
     if candidate_img is None:
         return False, 0.0
 
     try:
-        # Extract feature from candidate
         candidate_feature = extract_face_crop(candidate_img)
         if candidate_feature is None:
             return False, 0.0
 
-        # Compare using Cosine distance
-        # threshold for SFace cosine is ~0.363 for true positive
         score = recognizer.match(target_feature, candidate_feature, cv2.FaceRecognizerSF_FR_COSINE)
         
-        # Normalize score to a percentage (0.363 is threshold, max is 1.0)
-        # We remap 0.363 -> 0.80, 1.0 -> 1.0
         normalized_score = 0.0
         is_match = bool(score >= 0.363)
         
@@ -160,9 +170,7 @@ def compare_faces(target_feature: np.ndarray, candidate_img_bytes: bytes) -> Tup
         else:
             normalized_score = (score / 0.363) * 0.80
 
-        # Ensure float type and bounds
         normalized_score = max(0.0, min(1.0, float(normalized_score)))
-        
         return is_match, normalized_score
 
     except Exception as e:

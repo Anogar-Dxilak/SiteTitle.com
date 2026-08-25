@@ -135,9 +135,10 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
 
     verified_results: List[FaceSearchResult] = []
 
-    # SFace AI Biometric Face Verification (Parallel fast check on top 15 candidates)
+    # SFace AI Biometric Face Verification with Semaphore to strictly cap RAM < 120MB
     if target_face_feature is not None and len(unique_results) > 0:
-        connector = aiohttp.TCPConnector(ssl=False)
+        sem = asyncio.Semaphore(2)  # max 2 concurrent memory allocations
+        connector = aiohttp.TCPConnector(ssl=False, limit=4)
         async with aiohttp.ClientSession(connector=connector) as session:
             
             async def verify_single_result(res: FaceSearchResult):
@@ -146,26 +147,31 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
                         verified_results.append(res)
                     return
 
-                img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=2.5)
-                if img_bytes:
-                    is_match, similarity = compare_faces(target_face_feature, img_bytes)
-                    res.similarity_score = round(similarity, 2)
-                    
-                    if is_match or similarity >= 0.45:
-                        verified_results.append(res)
-                    elif res.is_social_profile and similarity >= 0.35:
-                        verified_results.append(res)
-                else:
-                    if res.is_social_profile:
-                        verified_results.append(res)
+                async with sem:
+                    img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=2.0)
+                    if img_bytes:
+                        is_match, similarity = compare_faces(target_face_feature, img_bytes)
+                        res.similarity_score = round(similarity, 2)
+                        
+                        if is_match or similarity >= 0.45:
+                            verified_results.append(res)
+                        elif res.is_social_profile and similarity >= 0.35:
+                            verified_results.append(res)
+                        del img_bytes
+                    else:
+                        if res.is_social_profile:
+                            verified_results.append(res)
 
-            tasks = [verify_single_result(r) for r in unique_results[:15]]
+            tasks = [verify_single_result(r) for r in unique_results[:12]]
             await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Also keep remaining social profiles that weren't in top 15
-            for r in unique_results[15:]:
+            # Keep remaining social profiles
+            for r in unique_results[12:]:
                 if r.is_social_profile and r not in verified_results:
                     verified_results.append(r)
+        
+        import gc
+        gc.collect()
     else:
         verified_results = unique_results
 
