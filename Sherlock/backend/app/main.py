@@ -13,11 +13,11 @@ app = FastAPI(
     description="OSINT tool for finding social media profiles by username or face photo",
 )
 
-# CORS middleware
+# CORS middleware - allow all origins for public OSINT API (including GitHub Pages)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
