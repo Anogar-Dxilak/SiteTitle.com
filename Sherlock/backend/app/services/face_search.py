@@ -42,10 +42,20 @@ def _analyze_link(url: str, title: str = ""):
     username = None
 
     # Check if it's a CDN or crawler domain
-    is_cdn = any(cdn in url_lower for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg.", "yastatic."])
+    is_cdn = any(cdn in url_lower for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg.", "yastatic.", "images."])
+
+    # Extract exact domain host to prevent substring bugs (e.g. 'edebiyat.medeniyet' matching 't.me')
+    try:
+        parsed_uri = urllib.parse.urlparse(url)
+        host = (parsed_uri.netloc or "").lower()
+        if not host and "/" in url:
+            host = url.split("/")[0].lower()
+        host = host.split(":")[0]
+    except Exception:
+        host = url_lower
 
     for domain, (p_name, p_icon) in SOCIAL_DOMAINS.items():
-        if domain in url_lower:
+        if host == domain or host.endswith("." + domain):
             platform = p_name
             icon = p_icon
             is_social = not is_cdn
@@ -55,7 +65,7 @@ def _analyze_link(url: str, title: str = ""):
                 m = re.search(r'(?:instagram\.com|twitter\.com|x\.com|facebook\.com|linkedin\.com/in|tiktok\.com/@|github\.com|reddit\.com/user|t\.me|vk\.com)/([a-zA-Z0-9_\.\-]+)', url)
                 if m:
                     candidate_user = m.group(1).lower()
-                    if candidate_user not in ["p", "reel", "stories", "share", "watch", "photo", "seo", "explore", "tags", "in", "pub", "feed", "dir"]:
+                    if candidate_user not in ["p", "reel", "stories", "share", "watch", "photo", "seo", "explore", "tags", "in", "pub", "feed", "dir", "staff", "academic", "en", "tr"]:
                         username = m.group(1)
             break
 
@@ -175,11 +185,13 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     else:
         verified_results = unique_results
 
-    # Sort results: High similarity social profiles first
-    verified_results.sort(
+    # SADECE VE SADECE GERÇEK SOSYAL MEDYA HESAPLARI
+    social_only_results = [r for r in verified_results if r.is_social_profile]
+
+    # Sort results: Highest AI similarity social profiles first
+    social_only_results.sort(
         key=lambda r: (
-            1 if r.is_social_profile and (r.similarity_score or 0) >= 0.50 else 0,
-            1 if r.is_social_profile else 0,
+            1 if (r.similarity_score or 0) >= 0.50 else 0,
             r.similarity_score or 0.0
         ),
         reverse=True
@@ -191,9 +203,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(verified_results),
+        total_found=len(social_only_results),
         total_checked=2,
-        face_results=verified_results,
+        face_results=social_only_results,
         duration_ms=elapsed_ms,
     )
 
