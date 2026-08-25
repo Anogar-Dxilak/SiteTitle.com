@@ -1,15 +1,36 @@
 """
-Face Verifier Module — OpenCV 5.x Compatible
-Uses histogram comparison and template matching for image similarity.
-No external model files needed. Works 100% offline.
+Face Verifier Module — Deep Learning with OpenCV
+Uses state-of-the-art SFace and YuNet models for highly accurate face recognition.
+Runs 100% offline via OpenCV DNN, no extra dependencies.
 """
 import cv2
 import numpy as np
 import aiohttp
 import logging
 from typing import Optional, Tuple
+import os
 
 logger = logging.getLogger("sherlock.face_verifier")
+
+# Initialize models globally so they load once
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+MODELS_DIR = os.path.join(BASE_DIR, "models", "dnn")
+YUNET_PATH = os.path.join(MODELS_DIR, "face_detection_yunet.onnx")
+SFACE_PATH = os.path.join(MODELS_DIR, "face_recognition_sface.onnx")
+
+detector = None
+recognizer = None
+
+try:
+    if os.path.exists(YUNET_PATH) and os.path.exists(SFACE_PATH):
+        # Initialize detector with a dummy size, we will update it per image
+        detector = cv2.FaceDetectorYN.create(YUNET_PATH, "", (320, 320), 0.9, 0.3, 5000)
+        recognizer = cv2.FaceRecognizerSF.create(SFACE_PATH, "")
+        logger.info("Successfully loaded YuNet and SFace models for face recognition.")
+    else:
+        logger.warning(f"DNN Models not found at {MODELS_DIR}. Face recognition will fail.")
+except Exception as e:
+    logger.error(f"Error loading face models: {e}")
 
 
 async def download_image_as_bytes(url: str, session: aiohttp.ClientSession, timeout: int = 3) -> Optional[bytes]:
@@ -37,65 +58,65 @@ def bytes_to_cv2_image(image_bytes: bytes) -> Optional[np.ndarray]:
 
 def extract_face_crop(img: np.ndarray) -> Optional[np.ndarray]:
     """
-    Extract the central region of the image as a 'face crop' heuristic.
-    Since OpenCV 5 removed CascadeClassifier and Haar cascades,
-    we use a center-crop approach (faces are typically centered in profile photos).
+    Extract the face FEATURE (embedding) directly using SFace instead of cropping.
+    Returns the 128D normalized feature vector as numpy array.
     """
+    if detector is None or recognizer is None:
+        return None
+    
     try:
         h, w = img.shape[:2]
-        if h < 30 or w < 30:
+        detector.setInputSize((w, h))
+        
+        _, faces = detector.detect(img)
+        if faces is None or len(faces) == 0:
             return None
-
-        # Center crop: take the middle 60% of the image (covers most face photos)
-        crop_ratio = 0.3
-        y1 = int(h * crop_ratio * 0.5)
-        y2 = int(h * (1 - crop_ratio * 0.5))
-        x1 = int(w * crop_ratio)
-        x2 = int(w * (1 - crop_ratio))
-
-        face_region = img[y1:y2, x1:x2]
-        gray = cv2.cvtColor(face_region, cv2.COLOR_BGR2GRAY)
-        return gray
+        
+        # Take the most confident face (faces[0] because it's sorted or just the first)
+        face = faces[0]
+        aligned_face = recognizer.alignCrop(img, face)
+        feature = recognizer.feature(aligned_face)
+        return feature
     except Exception as e:
-        logger.debug(f"Face crop error: {e}")
+        logger.debug(f"Face extraction error: {e}")
         return None
 
 
-def compare_faces(target_face_crop: np.ndarray, candidate_img_bytes: bytes) -> Tuple[bool, float]:
+def compare_faces(target_feature: np.ndarray, candidate_img_bytes: bytes) -> Tuple[bool, float]:
     """
-    Compare candidate image with target face using histogram + template matching.
-    Returns: (is_match: bool, similarity_score: float [0.0 - 1.0])
+    Compare candidate image with target face using Cosine Similarity of SFace embeddings.
     """
+    if recognizer is None or target_feature is None:
+        return False, 0.0
+
     candidate_img = bytes_to_cv2_image(candidate_img_bytes)
     if candidate_img is None:
         return False, 0.0
 
     try:
-        # Convert candidate to grayscale and resize
-        candidate_gray = cv2.cvtColor(candidate_img, cv2.COLOR_BGR2GRAY)
+        # Extract feature from candidate
+        candidate_feature = extract_face_crop(candidate_img)
+        if candidate_feature is None:
+            return False, 0.0
 
-        # Resize both images to same dimensions for comparison
-        target_resized = cv2.resize(target_face_crop, (128, 128))
-        candidate_resized = cv2.resize(candidate_gray, (128, 128))
-
-        # --- Method 1: Normalized Cross-Correlation (Template Matching) ---
-        result = cv2.matchTemplate(candidate_resized, target_resized, cv2.TM_CCOEFF_NORMED)
-        _, max_val, _, _ = cv2.minMaxLoc(result)
-        template_score = max(0.0, float(max_val))
-
-        # --- Method 2: Histogram Correlation ---
-        hist1 = cv2.calcHist([target_resized], [0], None, [256], [0, 256])
-        hist2 = cv2.calcHist([candidate_resized], [0], None, [256], [0, 256])
-        cv2.normalize(hist1, hist1, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-        cv2.normalize(hist2, hist2, alpha=0, beta=1, norm_type=cv2.NORM_MINMAX)
-        hist_score = max(0.0, float(cv2.compareHist(hist1, hist2, cv2.HISTCMP_CORREL)))
-
-        # Combined score: template matching weighted higher
-        combined_score = round((template_score * 0.7) + (hist_score * 0.3), 2)
+        # Compare using Cosine distance
+        # threshold for SFace cosine is ~0.363 for true positive
+        score = recognizer.match(target_feature, candidate_feature, cv2.FaceRecognizerSF_FR_COSINE)
         
-        is_match = combined_score >= 0.45
+        # Normalize score to a percentage (0.363 is threshold, max is 1.0)
+        # We remap 0.363 -> 0.80, 1.0 -> 1.0
+        normalized_score = 0.0
+        is_match = bool(score >= 0.363)
+        
+        if is_match:
+            normalized_score = 0.80 + ((score - 0.363) / (1.0 - 0.363)) * 0.20
+        else:
+            normalized_score = (score / 0.363) * 0.80
 
-        return is_match, combined_score
+        # Ensure float type and bounds
+        normalized_score = max(0.0, min(1.0, float(normalized_score)))
+        
+        return is_match, normalized_score
 
     except Exception as e:
         logger.debug(f"Face comparison error: {e}")

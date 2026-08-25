@@ -111,13 +111,11 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     verified_results: List[FaceSearchResult] = []
     
     target_img = cv2.imread(image_path)
-    target_face_crop = None
+    target_face_feature = None
     if target_img is not None:
-        target_face_crop = extract_face_crop(target_img)
-        if target_face_crop is None:
-            target_face_crop = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
+        target_face_feature = extract_face_crop(target_img)
 
-    if target_face_crop is not None and len(raw_results) > 0:
+    if target_face_feature is not None and len(raw_results) > 0:
         connector = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(connector=connector) as session:
             
@@ -128,19 +126,20 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
 
                 img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=3)
                 if img_bytes:
-                    is_match, similarity = compare_faces(target_face_crop, img_bytes)
+                    is_match, similarity = compare_faces(target_face_feature, img_bytes)
                     res.similarity_score = similarity
-                    # We keep ALL results, but assign similarity score if possible
-                    verified_results.append(res)
+                    # Only keep high confidence matches for social platforms, 
+                    # but keep all for non-social unless match is completely 0
+                    if is_match or (not res.is_social_profile and similarity > 0.4):
+                        verified_results.append(res)
                 else:
-                    verified_results.append(res)
+                    if not res.is_social_profile:
+                        verified_results.append(res)
 
-            # Check all results but don't filter them out
-            tasks = [verify_single_result(r) for r in raw_results[:15]]
+            tasks = [verify_single_result(r) for r in raw_results[:25]]
             await asyncio.gather(*tasks, return_exceptions=True)
             
-            # Add remaining unverified results
-            for r in raw_results[15:]:
+            for r in raw_results[25:]:
                 verified_results.append(r)
     else:
         verified_results = raw_results
