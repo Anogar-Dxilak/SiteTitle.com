@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 from app.models.result import FaceSearchResult, SearchResponse
 from app.utils.helpers import generate_search_id
-from app.services.face_verifier import extract_face_crop, compare_faces, download_image_as_bytes, create_optimized_face_crop
+from app.services.face_verifier import extract_face_crop, compare_faces, download_image_as_bytes
 
 
 SOCIAL_DOMAINS = {
@@ -779,8 +779,10 @@ def _add_candidate_result(url: str, title: str, desc: Optional[str], thumb: Opti
         return
     
     platform, icon, is_social, username = _analyze_link(clean_url, title or "")
+    if not is_social:
+        return
     
-    display_title = title if title and len(title) > 3 else (f"@{username}" if username else f"{platform} Match")
+    display_title = title if title and len(title) > 3 else (f"@{username}" if username else f"{platform} Profile")
     
     results.append(FaceSearchResult(
         source_engine="yandex",
@@ -790,6 +792,6 @@ def _add_candidate_result(url: str, title: str, desc: Optional[str], thumb: Opti
         username=username,
         url=clean_url,
         thumbnail_url=thumb,
-        description=desc or f"Matched profile/page on {platform}",
+        description=desc or f"Matched profile on {platform}",
         is_social_profile=is_social,
     ))
