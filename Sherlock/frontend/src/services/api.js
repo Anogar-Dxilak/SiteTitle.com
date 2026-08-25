@@ -64,20 +64,6 @@ export const searchUsername = async (username, platforms = null) => {
 };
 
 export const searchByFace = async (file, engines = null) => {
-  const fallbackResults = {
-    search_id: `face_${Date.now()}`,
-    face_results: [
-      {
-        platform: 'Yandex Engine',
-        platform_icon: '🔍',
-        title: 'Yandex Visual Search',
-        url: 'https://yandex.com/images/',
-        description: 'Direct link to search on Yandex (server fallback).',
-        is_social_profile: false,
-      }
-    ]
-  };
-
   try {
     const formData = new FormData();
     formData.append('file', file);
@@ -93,7 +79,7 @@ export const searchByFace = async (file, engines = null) => {
     return response.data;
   } catch (err) {
     console.error('Face search backend error:', err);
-    return fallbackResults;
+    throw err;
   }
 };
 
