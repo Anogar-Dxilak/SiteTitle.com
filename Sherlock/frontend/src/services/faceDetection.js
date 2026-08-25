@@ -52,32 +52,13 @@ export const detectFace = async (imageElement) => {
       const w = end[0] - start[0];
       const h = end[1] - start[1];
       
-      // Determine if coordinates are in natural pixels or rendered pixels
-      let normX, normY, normW, normH;
-      if (start[0] > renderedW || start[1] > renderedH || w > renderedW) {
-        normX = start[0] / naturalW;
-        normY = start[1] / naturalH;
-        normW = w / naturalW;
-        normH = h / naturalH;
-      } else {
-        // Test if coordinates are relative to natural image dimensions
-        const relToNatural = start[0] / naturalW;
-        const relToRendered = start[0] / renderedW;
-        
-        // If natural is significantly larger than rendered (e.g. 1000px vs 300px)
-        // start[0] is typically in natural coordinates
-        if (naturalW > renderedW * 1.5) {
-          normX = start[0] / naturalW;
-          normY = start[1] / naturalH;
-          normW = w / naturalW;
-          normH = h / naturalH;
-        } else {
-          normX = relToRendered;
-          normY = start[1] / renderedH;
-          normW = w / renderedW;
-          normH = h / renderedH;
-        }
-      }
+      // BlazeFace using tf.browser.fromPixels on an HTMLImageElement ALWAYS returns 
+      // coordinates relative to the image's intrinsic size (naturalWidth/naturalHeight),
+      // regardless of how the image is scaled via CSS on the screen.
+      const normX = naturalW > 0 ? start[0] / naturalW : 0;
+      const normY = naturalH > 0 ? start[1] / naturalH : 0;
+      const normW = naturalW > 0 ? w / naturalW : 0;
+      const normH = naturalH > 0 ? h / naturalH : 0;
       
       return {
         score: pred.probability[0],
