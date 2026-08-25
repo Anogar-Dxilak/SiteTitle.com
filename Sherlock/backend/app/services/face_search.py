@@ -40,23 +40,22 @@ SOCIAL_DOMAINS = {
 }
 
 
-def _analyze_link(url: str, title: str = ""):
-    url_lower = url.lower()
-    platform = "Web Page"
-    icon = "🌐"
-    is_social = False
-    username = None
+    # Check if it's a CDN or crawler domain
+    is_cdn = any(cdn in url_lower for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg."])
 
     for domain, (p_name, p_icon) in SOCIAL_DOMAINS.items():
         if domain in url_lower:
             platform = p_name
             icon = p_icon
-            is_social = True
+            is_social = not is_cdn
             
-            # Extract handle from URL path
-            m = re.search(r'(?:instagram\.com|twitter\.com|x\.com|facebook\.com|linkedin\.com/in|tiktok\.com/@|github\.com|reddit\.com/user|t\.me|vk\.com)/([a-zA-Z0-9_\.\-]+)', url)
-            if m and m.group(1) not in ["p", "reel", "stories", "share", "watch", "photo"]:
-                username = m.group(1)
+            # Extract handle from genuine profile URL path (not CDN/crawler)
+            if not is_cdn:
+                m = re.search(r'(?:instagram\.com|twitter\.com|x\.com|facebook\.com|linkedin\.com/in|tiktok\.com/@|github\.com|reddit\.com/user|t\.me|vk\.com)/([a-zA-Z0-9_\.\-]+)', url)
+                if m:
+                    candidate_user = m.group(1).lower()
+                    if candidate_user not in ["p", "reel", "stories", "share", "watch", "photo", "seo", "explore", "tags", "in", "pub", "feed"]:
+                        username = m.group(1)
             break
 
     if not username and title:
