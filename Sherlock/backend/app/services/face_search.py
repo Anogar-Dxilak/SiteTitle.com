@@ -107,6 +107,11 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         if engine == "yandex":
             engine_results = await _search_yandex(image_path)
             raw_results.extend(engine_results)
+            
+    # DİKKAT: Kullanıcı sadece sosyal medya profillerini görmek istediği için
+    # Yandex'ten gelen normal 'web_results' listesini tamamen yoksayıyoruz.
+    # Sadece `is_social_profile` True olanları (social_results) değerlendireceğiz.
+    social_only_results = [r for r in raw_results if r.is_social_profile]
     
     verified_results: List[FaceSearchResult] = []
     
@@ -115,34 +120,31 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     if target_img is not None:
         target_face_feature = extract_face_crop(target_img)
 
-    if target_face_feature is not None and len(raw_results) > 0:
+    if target_face_feature is not None and len(social_only_results) > 0:
         connector = aiohttp.TCPConnector(ssl=False)
         async with aiohttp.ClientSession(connector=connector) as session:
             
             async def verify_single_result(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    verified_results.append(res)
+                    # Thumbnail yoksa ama sosyal medya ise şüpheli bırakabiliriz 
+                    # Ancak isabet oranını artırmak için sadece fotoğrafı olanları doğrulayalım
                     return
 
                 img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=3)
                 if img_bytes:
                     is_match, similarity = compare_faces(target_face_feature, img_bytes)
                     res.similarity_score = similarity
-                    # Only keep high confidence matches for social platforms, 
-                    # but keep all for non-social unless match is completely 0
-                    if is_match or (not res.is_social_profile and similarity > 0.4):
-                        verified_results.append(res)
-                else:
-                    if not res.is_social_profile:
+                    
+                    # SADECE eşleşme yüksekse (Yapay Zeka bu aynı kişi diyorsa) ekle
+                    if is_match or similarity >= 0.5:
                         verified_results.append(res)
 
-            tasks = [verify_single_result(r) for r in raw_results[:25]]
+            tasks = [verify_single_result(r) for r in social_only_results[:40]]
             await asyncio.gather(*tasks, return_exceptions=True)
-            
-            for r in raw_results[25:]:
-                verified_results.append(r)
     else:
-        verified_results = raw_results
+        # Eğer yüz vektörü çıkarılamadıysa ama sosyal medya sonuçları varsa
+        # Hepsini direkt döndürebiliriz (güvenlik amaçlı)
+        verified_results = social_only_results
 
     verified_results.sort(
         key=lambda r: (r.is_social_profile, r.similarity_score or 0.0),
