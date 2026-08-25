@@ -113,10 +113,37 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
             
             {/* Draw bounding boxes based on original image size vs rendered image size */}
             {faces.map((face, idx) => {
-              const scaleX = imgRef.current ? imgRef.current.width / imgRef.current.naturalWidth : 1;
-              const scaleY = imgRef.current ? imgRef.current.height / imgRef.current.naturalHeight : 1;
+              const img = imgRef.current;
+              if (!img) return null;
               
-              const { xMin, yMin, width, height } = face.box;
+              const displayedWidth = img.clientWidth || img.width;
+              const displayedHeight = img.clientHeight || img.height;
+              const naturalWidth = img.naturalWidth || displayedWidth;
+              const naturalHeight = img.naturalHeight || displayedHeight;
+              
+              // Detect if BlazeFace coordinates are normalized or in natural / rendered pixels
+              let { xMin, yMin, width, height } = face.box;
+              
+              let left, top, boxWidth, boxHeight;
+              
+              // If box coordinates exceed displayed size, scale down from natural size
+              if (xMin > displayedWidth || yMin > displayedHeight || width > displayedWidth) {
+                const scaleX = displayedWidth / naturalWidth;
+                const scaleY = displayedHeight / naturalHeight;
+                left = xMin * scaleX;
+                top = yMin * scaleY;
+                boxWidth = width * scaleX;
+                boxHeight = height * scaleY;
+              } else {
+                left = xMin;
+                top = yMin;
+                boxWidth = width;
+                boxHeight = height;
+              }
+              
+              // Add slight padding for visual framing
+              const padX = boxWidth * 0.1;
+              const padY = boxHeight * 0.15;
               
               return (
                 <div 
@@ -124,31 +151,34 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
                   style={{
                     position: 'absolute',
                     border: '2px solid #00ff66',
-                    boxShadow: '0 0 10px #00ff66, inset 0 0 10px rgba(0,255,102,0.3)',
-                    backgroundColor: 'rgba(0, 255, 102, 0.1)',
-                    left: `${xMin * scaleX}px`,
-                    top: `${yMin * scaleY}px`,
-                    width: `${width * scaleX}px`,
-                    height: `${height * scaleY}px`,
+                    boxShadow: '0 0 12px rgba(0, 255, 102, 0.6), inset 0 0 8px rgba(0, 255, 102, 0.2)',
+                    backgroundColor: 'rgba(0, 255, 102, 0.08)',
+                    borderRadius: '4px',
+                    left: `${Math.max(0, left - padX)}px`,
+                    top: `${Math.max(0, top - padY)}px`,
+                    width: `${Math.min(displayedWidth - left, boxWidth + padX * 2)}px`,
+                    height: `${Math.min(displayedHeight - top, boxHeight + padY * 2)}px`,
                     pointerEvents: 'none',
-                    transition: 'all 0.3s ease-out'
+                    transition: 'all 0.2s ease-out'
                   }}
                 >
                   <div style={{
                     position: 'absolute',
                     top: '-20px',
-                    left: '0',
+                    left: '-2px',
                     background: '#00ff66',
                     color: '#000',
-                    fontSize: '10px',
-                    fontWeight: 'bold',
-                    padding: '2px 4px',
+                    fontSize: '9px',
+                    fontWeight: '800',
+                    letterSpacing: '1px',
+                    padding: '2px 6px',
+                    borderRadius: '2px',
                     fontFamily: 'monospace'
                   }}>
                     TARGET_ACQUIRED
                   </div>
                 </div>
-              )
+              );
             })}
 
             <button
