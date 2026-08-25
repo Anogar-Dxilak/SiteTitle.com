@@ -41,33 +41,127 @@ def _analyze_link(url: str, title: str = ""):
     is_social = False
     username = None
 
-    # Check if it's a CDN or crawler domain
-    is_cdn = any(cdn in url_lower for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg.", "yastatic.", "images."])
+    # Check if it's a CDN, crawler or tracking domain
+    is_cdn = any(cdn in url_lower for cdn in [
+        "lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", 
+        "pinimg.", "yastatic.", "images.", "schema.org", "w3.org", "favicon"
+    ])
+    if is_cdn:
+        return platform, icon, False, None
 
-    # Extract exact domain host to prevent substring bugs (e.g. 'edebiyat.medeniyet' matching 't.me')
     try:
         parsed_uri = urllib.parse.urlparse(url)
-        host = (parsed_uri.netloc or "").lower()
-        if not host and "/" in url:
-            host = url.split("/")[0].lower()
-        host = host.split(":")[0]
+        host = (parsed_uri.netloc or "").lower().split(":")[0]
+        path = parsed_uri.path.strip("/")
+        path_parts = [p for p in path.split("/") if p]
     except Exception:
         host = url_lower
+        path = ""
+        path_parts = []
 
-    for domain, (p_name, p_icon) in SOCIAL_DOMAINS.items():
-        if host == domain or host.endswith("." + domain):
-            platform = p_name
-            icon = p_icon
-            is_social = not is_cdn
-            
-            # Extract handle from genuine profile URL path (not CDN/crawler)
-            if not is_cdn:
-                m = re.search(r'(?:instagram\.com|twitter\.com|x\.com|facebook\.com|linkedin\.com/in|tiktok\.com/@|github\.com|reddit\.com/user|t\.me|vk\.com)/([a-zA-Z0-9_\.\-]+)', url)
-                if m:
-                    candidate_user = m.group(1).lower()
-                    if candidate_user not in ["p", "reel", "stories", "share", "watch", "photo", "seo", "explore", "tags", "in", "pub", "feed", "dir", "staff", "academic", "en", "tr"]:
-                        username = m.group(1)
-            break
+    # 1. LinkedIn (Profiles & Companies)
+    if "linkedin.com" in host:
+        if path.startswith("in/") or path.startswith("pub/"):
+            platform = "LinkedIn"
+            icon = "💼"
+            is_social = True
+            username = path_parts[1] if len(path_parts) > 1 else None
+        elif path.startswith("company/"):
+            platform = "LinkedIn"
+            icon = "💼"
+            is_social = True
+            username = path_parts[1] if len(path_parts) > 1 else None
+
+    # 2. YouTube (Channels & Videos)
+    elif "youtube.com" in host or "youtu.be" in host:
+        platform = "YouTube"
+        icon = "▶️"
+        is_social = True
+        if path.startswith("@"):
+            username = path_parts[0].lstrip("@")
+        elif path.startswith("channel/") or path.startswith("c/") or path.startswith("user/"):
+            username = path_parts[1] if len(path_parts) > 1 else None
+        elif not username and title:
+            clean_title = re.sub(r'\s*[-|•]\s*YouTube.*$', '', title, flags=re.IGNORECASE).strip()
+            if clean_title:
+                username = clean_title
+
+    # 3. Instagram (Strict user profile, reject /p/, /reel/, /explore/, etc.)
+    elif "instagram.com" in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["p", "reel", "reels", "stories", "explore", "tv", "accounts", "direct", "about", "developer"]:
+            platform = "Instagram"
+            icon = "📷"
+            is_social = True
+            username = path_parts[0]
+
+    # 4. Twitter / X (Strict user profile, reject /status/, /i/, /hashtag/)
+    elif "twitter.com" in host or "x.com" in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["home", "explore", "notifications", "messages", "i", "hashtag", "search", "settings"]:
+            platform = "Twitter / X"
+            icon = "🐦"
+            is_social = True
+            username = path_parts[0]
+
+    # 5. Facebook
+    elif "facebook.com" in host or "fb.com" in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["photo", "photos", "watch", "share", "events", "groups", "pages", "help", "gaming"]:
+            platform = "Facebook"
+            icon = "📘"
+            is_social = True
+            username = path_parts[0]
+        elif path.startswith("people/") or path.startswith("profile.php"):
+            platform = "Facebook"
+            icon = "📘"
+            is_social = True
+            username = path_parts[1] if len(path_parts) > 1 else None
+
+    # 6. TikTok
+    elif "tiktok.com" in host:
+        if path_parts and path_parts[0].startswith("@"):
+            platform = "TikTok"
+            icon = "🎵"
+            is_social = True
+            username = path_parts[0].lstrip("@")
+
+    # 7. Telegram (Channel or User)
+    elif host == "t.me" or host == "telegram.me":
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["s", "share", "joinchat", "addstickers", "iv", "c"]:
+            platform = "Telegram"
+            icon = "✈️"
+            is_social = True
+            username = path_parts[0]
+
+    # 8. GitHub (Strict user profile: exactly 1 path segment)
+    elif "github.com" in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["topics", "trending", "features", "explore", "pricing", "login", "join", "about", "pulls", "issues", "orgs"]:
+            platform = "GitHub"
+            icon = "🐙"
+            is_social = True
+            username = path_parts[0]
+
+    # 9. VKontakte
+    elif "vk.com" in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["feed", "im", "video", "audio", "apps"]:
+            platform = "VKontakte"
+            icon = "🔵"
+            is_social = True
+            username = path_parts[0]
+
+    # 10. Reddit
+    elif "reddit.com" in host:
+        if path.startswith("user/") and len(path_parts) >= 2:
+            platform = "Reddit"
+            icon = "🤖"
+            is_social = True
+            username = path_parts[1]
+
+    # 11. Pinterest (ONLY User profile, reject /pin/, /ideas/, etc.)
+    elif "pinterest." in host:
+        if len(path_parts) == 1 and path_parts[0].lower() not in ["pin", "pins", "ideas", "today", "explore", "search", "topics", "settings"]:
+            platform = "Pinterest"
+            icon = "📌"
+            is_social = True
+            username = path_parts[0]
 
     if not username and title:
         m_title = re.search(r'\(@?([a-zA-Z0-9_\.\-]+)\)', title)
@@ -110,13 +204,10 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     import logging
     logger = logging.getLogger("sherlock.search")
     
-    # Generate an isolated, optimized portrait crop of the face
-    search_image_path = create_optimized_face_crop(image_path)
-    
-    # Run both Google Vision & Yandex in parallel with fast timeouts
+    # Use original image for visual search so Yandex matches full context and resolution
     results_gv, results_yx = await asyncio.gather(
-        _search_google_vision(search_image_path),
-        _search_yandex(search_image_path),
+        _search_google_vision(image_path),
+        _search_yandex(image_path),
         return_exceptions=True
     )
 
@@ -135,16 +226,15 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             seen_urls.add(norm_url)
             unique_results.append(r)
 
-    # Extract facial embedding of target face
+    # Extract facial embedding of target face for biometric verification
     target_img = cv2.imread(image_path)
     target_face_feature = None
     if target_img is not None:
         target_face_feature = extract_face_crop(target_img)
 
+    # Filter strictly for social profiles
     social_candidates = [r for r in unique_results if r.is_social_profile]
-    web_candidates = [r for r in unique_results if not r.is_social_profile]
-    
-    logger.info(f"Found {len(social_candidates)} social + {len(web_candidates)} web candidates")
+    logger.info(f"Found {len(social_candidates)} social media candidates")
 
     verified_social: List[FaceSearchResult] = []
     unverified_social: List[FaceSearchResult] = []
@@ -164,7 +254,7 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
                     if img_bytes:
                         is_match, similarity = compare_faces(target_face_feature, img_bytes)
                         res.similarity_score = round(similarity, 2)
-                        if is_match or similarity >= 0.30:
+                        if is_match or similarity >= 0.28:
                             verified_social.append(res)
                         else:
                             unverified_social.append(res)
@@ -191,19 +281,12 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         reverse=True
     )
 
-    # Combine: Verified social profiles first, then other social profiles, then relevant web matches
-    combined_results: List[FaceSearchResult] = []
-    combined_results.extend(verified_social)
-    
-    # If few verified social profiles, add unverified social profiles
+    # STRICTLY SOCIAL MEDIA ONLY (No web pages as requested)
+    final_results: List[FaceSearchResult] = []
+    final_results.extend(verified_social)
     for s in unverified_social:
-        if s not in combined_results:
-            combined_results.append(s)
-            
-    # Add top web matches (e.g. news, blogs, pages where this image/person appears)
-    for w in web_candidates[:30]:
-        if w not in combined_results:
-            combined_results.append(w)
+        if s not in final_results:
+            final_results.append(s)
 
     elapsed_ms = int((time.time() - start_time) * 1000)
     
@@ -211,9 +294,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(combined_results),
+        total_found=len(final_results),
         total_checked=2,
-        face_results=combined_results,
+        face_results=final_results,
         duration_ms=elapsed_ms,
     )
 
