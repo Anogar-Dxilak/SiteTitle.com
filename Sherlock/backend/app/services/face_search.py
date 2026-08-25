@@ -176,11 +176,13 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     else:
         verified_results = unique_results
 
+    # Sadece ve sadece sosyal medya profillerini filtrele
+    social_only_results = [r for r in verified_results if r.is_social_profile]
+
     # Sort results: Social profiles with highest AI similarity first
-    verified_results.sort(
+    social_only_results.sort(
         key=lambda r: (
-            1 if r.is_social_profile and (r.similarity_score or 0) >= 0.50 else 0,
-            r.is_social_profile,
+            1 if (r.similarity_score or 0) >= 0.50 else 0,
             r.similarity_score or 0.0
         ),
         reverse=True
@@ -192,9 +194,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(verified_results),
+        total_found=len(social_only_results),
         total_checked=2,
-        face_results=verified_results,
+        face_results=social_only_results,
         duration_ms=elapsed_ms,
     )
 
