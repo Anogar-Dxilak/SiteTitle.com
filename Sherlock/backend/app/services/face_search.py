@@ -13,7 +13,7 @@ from bs4 import BeautifulSoup
 
 from app.models.result import FaceSearchResult, SearchResponse
 from app.utils.helpers import generate_search_id
-from app.services.face_verifier import extract_face_crop, compare_faces, download_image_as_bytes
+from app.services.face_verifier import extract_face_crop, compare_faces, download_image_as_bytes, create_optimized_face_crop
 
 
 SOCIAL_DOMAINS = {
@@ -109,10 +109,14 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     import logging
     logger = logging.getLogger("sherlock.search")
     
-    # Run both Google Vision & Yandex in parallel
+    # Generate an isolated, optimized portrait crop of the face
+    # so search engines focus 100% on facial features without background noise
+    search_image_path = create_optimized_face_crop(image_path)
+    
+    # Run both Google Vision & Yandex in parallel using the focused face crop
     results_gv, results_yx = await asyncio.gather(
-        _search_google_vision(image_path),
-        _search_yandex(image_path),
+        _search_google_vision(search_image_path),
+        _search_yandex(search_image_path),
         return_exceptions=True
     )
 
