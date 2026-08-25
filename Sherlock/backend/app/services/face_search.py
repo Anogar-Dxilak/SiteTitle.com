@@ -192,18 +192,16 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         reverse=True
     )
 
-    # Combine: Social profiles FIRST (top priority), then web matches
-    combined_results = verified_social + web_candidates[:15]
-    
+    # SADECE VE SADECE DOĞRULANMIŞ SOSYAL MEDYA HESAPLARI (Web/medya sayfaları tamamen yok)
     elapsed_ms = int((time.time() - start_time) * 1000)
     
     return SearchResponse(
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(combined_results),
+        total_found=len(verified_social),
         total_checked=2,
-        face_results=combined_results,
+        face_results=verified_social,
         duration_ms=elapsed_ms,
     )
 

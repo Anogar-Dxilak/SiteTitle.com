@@ -31,13 +31,6 @@ export default function SearchPage() {
     reset,
   } = useSearch();
 
-  const handleFileSelect = useCallback((file) => {
-    setSelectedFile(file);
-    if (file) {
-      reset();
-    }
-  }, [reset]);
-
   const handleUsernameSearch = useCallback((username) => {
     toast.loading(`Searching for "${username}"...`, { id: 'search' });
     
@@ -159,7 +152,7 @@ export default function SearchPage() {
                 transition={{ duration: 0.2 }}
               >
                 <PhotoUpload
-                  onFileSelect={handleFileSelect}
+                  onFileSelect={setSelectedFile}
                   loading={loading}
                 />
                 <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
@@ -295,93 +288,57 @@ export default function SearchPage() {
         )}
 
         {/* Face Results */}
-        {activeTab === 'face' && faceResults.length > 0 && (() => {
-          const socialFaceResults = faceResults.filter(r => r.is_social_profile);
-          const webFaceResults = faceResults.filter(r => !r.is_social_profile);
-
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <div className="search-summary" style={{ marginBottom: '24px' }}>
-                <div className="search-summary__left">
-                  <div className="search-summary__query">Visual Search Analysis</div>
-                  <div className="search-summary__stats">
-                    {socialFaceResults.length > 0 && (
-                      <span className="search-summary__stat">
-                        <strong style={{ color: 'var(--accent-green)' }}>{socialFaceResults.length}</strong> social profiles
-                      </span>
-                    )}
-                    <span className="search-summary__stat">
-                      <strong>{faceResults.length}</strong> total matches found
-                    </span>
-                  </div>
+        {activeTab === 'face' && faceResults.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          >
+            <div className="search-summary" style={{ marginBottom: '24px' }}>
+              <div className="search-summary__left">
+                <div className="search-summary__query">Visual Social Media Intelligence</div>
+                <div className="search-summary__stats">
+                  <span className="search-summary__stat">
+                    <strong style={{ color: 'var(--accent-green)' }}>{faceResults.length}</strong> matched social profiles
+                  </span>
                 </div>
-                <button className="btn btn--ghost btn--sm" onClick={handleExport}>
-                  <Download size={14} /> Export Results
-                </button>
               </div>
+              <button className="btn btn--ghost btn--sm" onClick={handleExport}>
+                <Download size={14} /> Export Results
+              </button>
+            </div>
 
-              {/* Social Profiles Section */}
-              {socialFaceResults.length > 0 && (
-                <div style={{ marginBottom: '28px' }}>
-                  <h3 style={{
-                    fontSize: '0.85rem',
-                    color: 'var(--accent-cyan)',
-                    fontWeight: 800,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
-                    marginBottom: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}>
-                    <span>🎯</span> Matched Social Profiles ({socialFaceResults.length})
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {socialFaceResults.map((result, i) => (
-                      <FaceResultCard key={`social-${result.url}-${i}`} result={result} index={i} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Web Results Section */}
-              {webFaceResults.length > 0 && (
-                <div>
-                  <h3 style={{
-                    fontSize: '0.85rem',
-                    color: 'var(--text-muted)',
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    letterSpacing: '1.5px',
-                    marginBottom: '14px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}>
-                    <span>🌐</span> Matching Web Pages & Media ({webFaceResults.length})
-                  </h3>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {webFaceResults.map((result, i) => (
-                      <FaceResultCard key={`web-${result.url}-${i}`} result={result} index={i} />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </motion.div>
-          );
-        })()}
+            {/* Social Profiles Section */}
+            <div style={{ marginBottom: '28px' }}>
+              <h3 style={{
+                fontSize: '0.85rem',
+                color: 'var(--accent-cyan)',
+                fontWeight: 800,
+                textTransform: 'uppercase',
+                letterSpacing: '1.5px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+              }}>
+                <span>🎯</span> Matched Social Profiles ({faceResults.length})
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {faceResults.map((result, i) => (
+                  <FaceResultCard key={`social-${result.url}-${i}`} result={result} index={i} />
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* Face Search Empty State */}
         {activeTab === 'face' && results && faceResults.length === 0 && !loading && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <GlassCard style={{ textAlign: 'center', padding: '32px 24px', marginTop: '20px' }}>
-              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>📷</div>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px' }}>Otomatik Eşleşme Bulunamadı</h3>
+              <div style={{ fontSize: '2.5rem', marginBottom: '12px' }}>🎯</div>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 700, marginBottom: '8px' }}>Sosyal Medya Eşleşmesi Bulunamadı</h3>
               <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '500px', margin: '0 auto' }}>
-                Yüklediğiniz fotoğraf için Yandex üzerinde doğrudan eşleşen bir sayfa bulunamadı. Farklı ve net bir vesikalık veya yüz fotoğrafı deneyebilirsiniz.
+                Yüklediğiniz fotoğraf için açık kaynaklarda (LinkedIn, Instagram, X, TikTok vb.) doğrudan bir sosyal medya profili bulunamadı. Farklı bir açıdan çekilmiş veya net bir vesikalık fotoğraf deneyebilirsiniz.
               </p>
             </GlassCard>
           </motion.div>
