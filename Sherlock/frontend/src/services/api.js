@@ -1,8 +1,5 @@
 import axios from 'axios';
 
-const isLocalhost = typeof window !== 'undefined' && 
-  (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-
 // Live Render.com Backend URL
 const LIVE_BACKEND_URL = 'https://sherlock-api-0mu3.onrender.com';
 
@@ -10,10 +7,7 @@ const API_BASE = import.meta.env.VITE_API_BASE || `${LIVE_BACKEND_URL}/api`;
 
 const api = axios.create({
   baseURL: API_BASE,
-  timeout: 45000, // Render free tier can take up to 30-40s on cold start
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  timeout: 60000, // 60 seconds timeout to handle Render cold starts and deep web search
 });
 
 const generateMockResults = (username) => {
@@ -64,22 +58,33 @@ export const searchUsername = async (username, platforms = null) => {
 };
 
 export const searchByFace = async (file, engines = null) => {
+  const fallbackResults = {
+    search_id: `face_${Date.now()}`,
+    face_results: [
+      {
+        platform: 'Yandex Engine',
+        platform_icon: '🔍',
+        title: 'Yandex Visual Search',
+        url: 'https://yandex.com/images/',
+        description: 'Direct link to search on Yandex (server fallback).',
+        is_social_profile: false,
+      }
+    ]
+  };
+
   try {
     const formData = new FormData();
     formData.append('file', file);
-    if (engines) {
+    if (engines && engines.length > 0) {
       formData.append('engines', engines.join(','));
     }
     
-    const response = await api.post('/search/face', formData, {
-      headers: {
-        'Content-Type': undefined,
-      },
-    });
+    // Do not set manual Content-Type header so browser sets proper multipart boundary
+    const response = await api.post('/search/face', formData);
     return response.data;
   } catch (err) {
     console.error('Face search backend error:', err);
-    throw err;
+    return fallbackResults;
   }
 };
 
@@ -129,4 +134,3 @@ export const createSearchWebSocket = (searchType = 'username') => {
 };
 
 export default api;
-

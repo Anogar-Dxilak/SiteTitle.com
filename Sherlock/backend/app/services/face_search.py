@@ -35,55 +35,29 @@ SOCIAL_DOMAINS = {
 
 
 def _analyze_link(url: str, title: str = ""):
+    url_lower = url.lower()
     platform = "Web Page"
     icon = "🌐"
     is_social = False
     username = None
 
-    try:
-        parsed = urllib.parse.urlparse(url)
-        netloc = parsed.netloc.lower()
-        if ":" in netloc:
-            netloc = netloc.split(":")[0]
+    # Check if it's a CDN or crawler domain
+    is_cdn = any(cdn in url_lower for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg.", "yastatic."])
 
-        is_cdn = any(cdn in netloc for cdn in ["lookaside.", "cdn.", "fbcdn.", "twimg.", "licdn.", "tiktokcdn.", "pinimg.", "yastatic.", "mds.yandex"])
-
-        for domain, (p_name, p_icon) in SOCIAL_DOMAINS.items():
-            if netloc == domain or netloc.endswith("." + domain):
-                platform = p_name
-                icon = p_icon
-                is_social = not is_cdn
-                
-                if not is_cdn:
-                    path = parsed.path
-                    if "linkedin.com" in netloc:
-                        m = re.search(r'/in/([a-zA-Z0-9_\.\-]+)', path)
-                        if m:
-                            username = m.group(1)
-                    elif "instagram.com" in netloc:
-                        m = re.search(r'/([a-zA-Z0-9_\.\-]+)', path)
-                        if m and m.group(1).lower() not in ["p", "reel", "stories", "explore", "tags"]:
-                            username = m.group(1)
-                    elif "twitter.com" in netloc or "x.com" in netloc:
-                        m = re.search(r'/([a-zA-Z0-9_\.\-]+)', path)
-                        if m and m.group(1).lower() not in ["home", "explore", "notifications", "messages", "search", "i"]:
-                            username = m.group(1)
-                    elif "github.com" in netloc:
-                        m = re.search(r'/([a-zA-Z0-9_\.\-]+)', path)
-                        if m:
-                            username = m.group(1)
-                    elif "tiktok.com" in netloc:
-                        m = re.search(r'/@([a-zA-Z0-9_\.\-]+)', path)
-                        if m:
-                            username = m.group(1)
-                    else:
-                        m = re.search(r'/([a-zA-Z0-9_\.\-]+)', path)
-                        if m and m.group(1).lower() not in ["home", "about", "contact"]:
-                            username = m.group(1)
-                break
-
-    except Exception:
-        pass
+    for domain, (p_name, p_icon) in SOCIAL_DOMAINS.items():
+        if domain in url_lower:
+            platform = p_name
+            icon = p_icon
+            is_social = not is_cdn
+            
+            # Extract handle from genuine profile URL path (not CDN/crawler)
+            if not is_cdn:
+                m = re.search(r'(?:instagram\.com|twitter\.com|x\.com|facebook\.com|linkedin\.com/in|tiktok\.com/@|github\.com|reddit\.com/user|t\.me|vk\.com)/([a-zA-Z0-9_\.\-]+)', url)
+                if m:
+                    candidate_user = m.group(1).lower()
+                    if candidate_user not in ["p", "reel", "stories", "share", "watch", "photo", "seo", "explore", "tags", "in", "pub", "feed", "dir"]:
+                        username = m.group(1)
+            break
 
     if not username and title:
         m_title = re.search(r'\(@?([a-zA-Z0-9_\.\-]+)\)', title)
@@ -107,17 +81,26 @@ async def search_by_face(
     try:
         return await asyncio.wait_for(
             _execute_face_search(search_id, image_path, search_engines, start_time),
-            timeout=35.0
+            timeout=25.0
         )
     except asyncio.TimeoutError:
         elapsed_ms = int((time.time() - start_time) * 1000)
+        fallback_res = FaceSearchResult(
+            source_engine="yandex",
+            platform="Yandex Engine",
+            platform_icon="🔍",
+            title="Yandex Direct Image Search",
+            url="https://yandex.com/images/",
+            description="Search timed out. Click to open Yandex Visual Search directly.",
+            is_social_profile=False,
+        )
         return SearchResponse(
             search_id=search_id,
             search_type="face",
             query=Path(image_path).name,
-            total_found=0,
+            total_found=1,
             total_checked=2,
-            face_results=[],
+            face_results=[fallback_res],
             duration_ms=elapsed_ms,
         )
 
@@ -127,9 +110,10 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     logger = logging.getLogger("sherlock.search")
     
     # Generate an isolated, optimized portrait crop of the face
+    # so search engines focus 100% on facial features without background noise
     search_image_path = create_optimized_face_crop(image_path)
     
-    # Run both Google Vision & Yandex in parallel
+    # Run both Google Vision & Yandex in parallel using the focused face crop
     results_gv, results_yx = await asyncio.gather(
         _search_google_vision(search_image_path),
         _search_yandex(search_image_path),
@@ -146,6 +130,7 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
     unique_results: List[FaceSearchResult] = []
     seen_urls = set()
     for r in raw_results:
+        # Normalize URL
         norm_url = re.sub(r'\?.*$', '', r.url).rstrip('/')
         if norm_url and norm_url not in seen_urls:
             seen_urls.add(norm_url)
@@ -168,7 +153,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
             
             async def verify_single_result(res: FaceSearchResult):
                 if not res.thumbnail_url:
-                    verified_results.append(res)
+                    # If social profile without downloadable thumbnail, keep it
+                    if res.is_social_profile:
+                        verified_results.append(res)
                     return
 
                 img_bytes = await download_image_as_bytes(res.thumbnail_url, session, timeout=4)
@@ -176,24 +163,30 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
                     is_match, similarity = compare_faces(target_face_feature, img_bytes)
                     res.similarity_score = round(similarity, 2)
                     
-                    if is_match or similarity >= 0.45:
+                    # SFace match threshold: Normalized similarity >= 0.50 or is_match
+                    if is_match or similarity >= 0.50:
                         verified_results.append(res)
-                    elif res.is_social_profile and similarity >= 0.35:
+                    elif res.is_social_profile and similarity >= 0.40:
+                        # Slightly relaxed for low-res social thumbnails
                         verified_results.append(res)
                     else:
                         logger.debug(f"Filtered non-matching face ({similarity:.2f}): {res.url}")
                 else:
-                    verified_results.append(res)
+                    if res.is_social_profile:
+                        verified_results.append(res)
 
             tasks = [verify_single_result(r) for r in unique_results[:40]]
             await asyncio.gather(*tasks, return_exceptions=True)
     else:
         verified_results = unique_results
 
+    # Sadece ve sadece sosyal medya profillerini filtrele
+    social_only_results = [r for r in verified_results if r.is_social_profile]
+
     # Sort results: Social profiles with highest AI similarity first
-    verified_results.sort(
+    social_only_results.sort(
         key=lambda r: (
-            1 if r.is_social_profile else 0,
+            1 if (r.similarity_score or 0) >= 0.50 else 0,
             r.similarity_score or 0.0
         ),
         reverse=True
@@ -205,9 +198,9 @@ async def _execute_face_search(search_id: str, image_path: str, search_engines: 
         search_id=search_id,
         search_type="face",
         query=Path(image_path).name,
-        total_found=len(verified_results),
+        total_found=len(social_only_results),
         total_checked=2,
-        face_results=verified_results,
+        face_results=social_only_results,
         duration_ms=elapsed_ms,
     )
 
