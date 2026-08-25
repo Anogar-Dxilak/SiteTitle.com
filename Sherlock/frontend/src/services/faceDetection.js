@@ -38,11 +38,20 @@ export const detectFace = async (imageElement) => {
     const currentDetector = await initDetector();
     if (!currentDetector) throw new Error("Detector not initialized");
 
-    const predictions = await currentDetector.estimateFaces(imageElement, false);
-    
-    // Determine the actual coordinate dimensions used by TensorFlow
-    const renderedW = imageElement.clientWidth || imageElement.width || 1;
-    const renderedH = imageElement.clientHeight || imageElement.height || 1;
+    const naturalW = imageElement.naturalWidth || imageElement.width || 1;
+    const naturalH = imageElement.naturalHeight || imageElement.height || 1;
+
+    // By drawing the image to a canvas of exact intrinsic size, we:
+    // 1. Bypass any CSS scaling bugs where img.width is used by blazeface
+    // 2. Guarantee coordinates are in the exact [0..naturalW] space
+    // 3. Fix potential EXIF rotation bugs in some browsers
+    const canvas = document.createElement('canvas');
+    canvas.width = naturalW;
+    canvas.height = naturalH;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(imageElement, 0, 0, naturalW, naturalH);
+
+    const predictions = await currentDetector.estimateFaces(canvas, false);
 
     return predictions.map(pred => {
       const start = pred.topLeft;
@@ -50,15 +59,12 @@ export const detectFace = async (imageElement) => {
       const w = end[0] - start[0];
       const h = end[1] - start[1];
       
-      // CRITICAL FIX: 
-      // BlazeFace internally scales its normalized bounding boxes [0..1] by `imageElement.width` and `imageElement.height`.
-      // In the browser, `img.width` returns the *RENDERED* layout width, not the natural intrinsic width.
-      // Therefore, `pred.topLeft` and `pred.bottomRight` are ALREADY in RENDERED pixels!
-      // To get the true percentage (0 to 1), we MUST divide by the rendered width/height.
-      const normX = start[0] / renderedW;
-      const normY = start[1] / renderedH;
-      const normW = w / renderedW;
-      const normH = h / renderedH;
+      // Since we passed a canvas of size [naturalW, naturalH], 
+      // the coordinates are 100% guaranteed to be in this exact space.
+      const normX = naturalW > 0 ? start[0] / naturalW : 0;
+      const normY = naturalH > 0 ? start[1] / naturalH : 0;
+      const normW = naturalW > 0 ? w / naturalW : 0;
+      const normH = naturalH > 0 ? h / naturalH : 0;
       
       return {
         score: pred.probability[0],

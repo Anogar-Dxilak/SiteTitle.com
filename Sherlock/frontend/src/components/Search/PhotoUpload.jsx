@@ -157,7 +157,7 @@ export default function PhotoUpload({ onFileSelect, loading = false }) {
                     fontFamily: 'monospace',
                     whiteSpace: 'nowrap'
                   }}>
-                    TARGET_ACQUIRED
+                    TARGET {Math.round(x * 100)}%,{Math.round(y * 100)}%
                   </div>
                 </div>
               );
