@@ -182,6 +182,17 @@ const getVirtualFs = (lang) => {
                         size: 1890,
                         date: 'May 28 16:45',
                         content: '# DIWA Penetration Test Report\n\n## Executive Summary\nDuring penetration testing of the DIWA system, a critical SQL injection\nvulnerability was discovered in the admin authentication mechanism.\n\n## Findings\n\n### CRITICAL - Admin NoPass SQL Injection\n- Severity: Critical (CVSS 9.8)\n- Location: /admin/login.php\n- Parameter: username\n- Payload: \' OR 1=1 --\n- Impact: Full admin access without credentials\n\n### Remediation\n- Implement parameterized queries\n- Input validation and sanitization\n- WAF rule implementation'
+                      },
+                      'suricata_kurulum_raporu.md': {
+                        type: 'file',
+                        permissions: '-rw-r--r--',
+                        links: 1,
+                        owner: 'egemen',
+                        group: 'egemen',
+                        size: 3042,
+                        date: 'Jul 24 12:00',
+                        pdfUrl: '/documents/reports/suricata_rehberi.pdf',
+                        content: '# Windows Suricata Kurulumu ve Wazuh Entegrasyonu\n\n## 1. Suricata Setup\n- Npcap kurulumu (npcap.com)\n- Suricata 7.0 kurulumu (suricata.io)\n- Emergingthreats kurallarinin (emerging-all.rules, classification.config) indirilmesi ve suricata\\rules icine atilmasi.\n- suricata.yaml yapilandirmasinda HOME_NET ayarlanmasi.\n\n## 2. Kural Ekleme\n- rules dizininde custom.rules olusturulmasi ve suricata.yaml dosyasina tanitilmasi.\n- classification.config icinde classtype tanimlamalarinin yapilmasi.\n\n## 3. Port Scan Detection Kurali Ornegi\n`alert tcp any any -> $HOME_NET any (msg:"Port Scan Detection - TCP SYN"; flags:S; threshold: type threshold, track by_src, count 10, seconds 40; classtype:network-scan; sid:1000012; rev:2;)`\n\n## 4. Wazuh Entegrasyonu\nWazuh Agent yapilandirmasi:\n`<localfile>\n <location>C:\\Program Files\\Suricata\\log\\eve.json</location>\n <log_format>json</log_format>\n</localfile>`\n\n## 5. Servis Durumuna Getirme\n`powershell: .\\suricata.exe -c suricata.yaml -i [IP_ADDR] -l log --init-errors-fatal -v --service-install`\n\n*Hazirlayan: Egemen Der (Temmuz 2025)*'
                       }
                     }
                   },
@@ -481,7 +492,7 @@ const getVirtualFs = (lang) => {
                     group: 'egemen',
                     size: 1580,
                     date: 'Jul 14 08:30',
-                    content: '<!-- Custom Wazuh Rules by Egemen Der -->\n<group name="custom_sql_injection">\n  <rule id="100100" level="12">\n    <if_group>web|accesslog</if_group>\n    <regex>SELECT.*FROM|UNION.*SELECT|OR\\s+1=1|DROP\\s+TABLE</regex>\n    <description>SQL Injection attempt detected</description>\n    <mitre>\n      <id>T1190</id>\n    </mitre>\n  </rule>\n\n  <rule id="100101" level="10">\n    <if_group>web|accesslog</if_group>\n    <regex>\\.\\.%2f|\\.\\.\\\\|%00|/etc/passwd</regex>\n    <description>Path traversal attempt detected</description>\n    <mitre>\n      <id>T1083</id>\n    </mitre>\n  </rule>\n</group>'
+                    content: '<!-- Custom Wazuh Rules by Egemen Der -->\n<group name="windows,authentication_success,">\n  <rule id="100003" level="0" overwrite="yes">\n    <field name="win.system.eventID">^4624$</field>\n    <field name="win.system.logonType">^5$</field>\n    <field name="win.system.targetUserName">^SYSTEM$</field>\n    <description>Ignore successful logon for SYSTEM account with Logon Type 5</description>\n    <options>no_full_log</options>\n    <group>authentication_success,</group>\n  </rule>\n</group>\n\n<group name="custom_sql_injection">\n  <rule id="100100" level="12">\n    <if_group>web|accesslog</if_group>\n    <regex>SELECT.*FROM|UNION.*SELECT|OR\\s+1=1|DROP\\s+TABLE</regex>\n    <description>SQL Injection attempt detected</description>\n    <mitre>\n      <id>T1190</id>\n    </mitre>\n  </rule>\n\n  <rule id="100101" level="10">\n    <if_group>web|accesslog</if_group>\n    <regex>\\.\\.%2f|\\.\\.\\\\|%00|/etc/passwd</regex>\n    <description>Path traversal attempt detected</description>\n    <mitre>\n      <id>T1083</id>\n    </mitre>\n  </rule>\n</group>'
                   }
                 }
               }
@@ -896,8 +907,13 @@ export default function App() {
             } else if (node.type === 'dir') {
               fileResponse.push({ text: `cat: ${target}: Is a directory`, type: 'error' });
             } else {
-              const lines = node.content.split('\n');
-              fileResponse.push(...lines.map(line => ({ text: line, type: 'output' })));
+              if (node.pdfUrl) {
+                window.open(node.pdfUrl, '_blank');
+                fileResponse.push({ text: `[*] Opening ${target} in a new tab...`, type: 'output' });
+              } else {
+                const lines = node.content.split('\n');
+                fileResponse.push(...lines.map(line => ({ text: line, type: 'output' })));
+              }
             }
           }
           response = fileResponse;
