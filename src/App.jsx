@@ -47,7 +47,7 @@ const getVirtualFs = (lang) => {
                 group: 'egemen',
                 size: 3771,
                 date: 'Jul 10 09:00',
-                content: `# ~/.bashrc: executed by bash(1) for non-login shells.\n\n# If not running interactively, don't do anything\ncase $- in\n    *i*) ;;\n      *) return;;\nesac\n\n# History settings\nHISTSIZE=1000\nHISTFILESIZE=2000\n\n# Prompt\nPS1='\\[\\033[01;32m\\]guest@egemen\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ '\n\n# Aliases\nalias ll='ls -alF'\nalias la='ls -A'\nalias l='ls -CF'\nalias nmap-quick='nmap -sV -sC -O'\nalias msfconsole='cd /opt/metasploit && ./msfconsole'\n\nexport PATH=$PATH:/opt/metasploit:/opt/burpsuite`
+                content: `# ~/.bashrc: executed by bash(1) for non-login shells.\n\n# If not running interactively, don't do anything\ncase $- in\n    *i*) ;;\n      *) return;;\nesac\n\n# History settings\nHISTSIZE=1000\nHISTFILESIZE=2000\n\n# Prompt\nPS1='\\[\\033[01;32m\\]guest@CyberOS\\[\\033[00m\\]:\\[\\033[01;34m\\]\\w\\[\\033[00m\\]\\$ '\n\n# Aliases\nalias ll='ls -alF'\nalias la='ls -A'\nalias l='ls -CF'\nalias nmap-quick='nmap -sV -sC -O'\nalias msfconsole='cd /opt/metasploit && ./msfconsole'\n\nexport PATH=$PATH:/opt/metasploit:/opt/burpsuite`
               },
               '.bash_history': {
                 type: 'file',
@@ -76,7 +76,7 @@ const getVirtualFs = (lang) => {
                     group: 'egemen',
                     size: 570,
                     date: 'Jul 15 11:20',
-                    content: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... (truncated for security) guest@egemen'
+                    content: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC7... (truncated for security) guest@CyberOS'
                   },
                   'known_hosts': {
                     type: 'file',
@@ -1462,7 +1462,7 @@ export default function App() {
                 <span className="w-3 h-3 rounded-full bg-yellow-500/70 block"></span>
                 <span className="w-3 h-3 rounded-full bg-[#00ff66]/70 block"></span>
               </div>
-              <span className="text-xs font-mono text-gray-500 select-none">bash - guest@egemen</span>
+              <span className="text-xs font-mono text-gray-500 select-none">bash - guest@CyberOS</span>
             </div>
 
             {/* Terminal Body */}
@@ -1476,7 +1476,7 @@ export default function App() {
                           <span className="text-[#00ff66]">┌──(</span>
                           <span className="text-red-500 font-bold">guest</span>
                           <span className="text-red-500 mx-0.5">💀</span>
-                          <span className="text-red-500 font-bold">egemen</span>
+                          <span className="text-red-500 font-bold">CyberOS</span>
                           <span className="text-[#00ff66]">)-[</span>
                           <span className="text-white font-bold">{line.path}</span>
                           <span className="text-[#00ff66]">]</span>
@@ -1531,7 +1531,7 @@ export default function App() {
                   <span className="text-[#00ff66]">┌──(</span>
                   <span className="text-red-500 font-bold">guest</span>
                   <span className="text-red-500 mx-0.5">💀</span>
-                  <span className="text-red-500 font-bold">egemen</span>
+                  <span className="text-red-500 font-bold">CyberOS</span>
                   <span className="text-[#00ff66]">)-[</span>
                   <span className="text-white font-bold">{currentPath === HOME_DIR ? '~' : (currentPath.startsWith(HOME_DIR + '/') ? '~' + currentPath.slice(HOME_DIR.length) : currentPath)}</span>
                   <span className="text-[#00ff66]">]</span>
