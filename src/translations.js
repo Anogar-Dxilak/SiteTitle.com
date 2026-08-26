@@ -168,8 +168,17 @@ export const TRANSLATIONS = {
       errorEmptyMsg: 'Lütfen bir geri bildirim mesajı yazın.'
     },
     terminal: {
-      welcome: "Egemen'in CyberOS v1.0.0 sistemine hoş geldiniz...",
-      helpInstruction: 'Kullanılabilir komutları görmek için "help" yazın.',
+      welcomeLines: [
+        '╔══════════════════════════════════════╗',
+        '║             CyberOS v1.0             ║',
+        '║      Red Team Security Terminal      ║',
+        '╚══════════════════════════════════════╝',
+        ' Kernel 6.1.0-cyberos-amd64 | x86_64',
+        ' Uptime: ∞ | Clearance: AUTHORIZED',
+        ' Session: guest@CyberOS',
+        ''
+      ],
+      helpInstruction: 'Komutları listelemek için "help" yazın.',
       commandsHeader: 'Kullanılabilir komutlar:',
       helpCmd: '  help        - Komut listesini göster',
       aboutCmd: '  about       - Profesyonel özet',
@@ -361,7 +370,16 @@ export const TRANSLATIONS = {
       errorEmptyMsg: 'Please write a feedback message.'
     },
     terminal: {
-      welcome: "Welcome to Egemen's CyberOS v1.0.0...",
+      welcomeLines: [
+        '╔══════════════════════════════════════╗',
+        '║             CyberOS v1.0             ║',
+        '║      Red Team Security Terminal      ║',
+        '╚══════════════════════════════════════╝',
+        ' Kernel 6.1.0-cyberos-amd64 | x86_64',
+        ' Uptime: ∞ | Clearance: AUTHORIZED',
+        ' Session: guest@CyberOS',
+        ''
+      ],
       helpInstruction: 'Type "help" to see available commands.',
       commandsHeader: 'Available commands:',
       helpCmd: '  help        - Display command list',

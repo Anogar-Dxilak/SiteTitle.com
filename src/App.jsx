@@ -762,7 +762,7 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState(HOME_DIR);
   const [isSherlockModalOpen, setIsSherlockModalOpen] = useState(false);
   const [terminalHistory, setTerminalHistory] = useState([
-    { text: t.terminal.welcome, type: 'system' },
+    ...t.terminal.welcomeLines.map(line => ({ text: line, type: 'ascii' })),
     { text: t.terminal.helpInstruction, type: 'system' },
     { text: '', type: 'system' }
   ]);
@@ -771,9 +771,9 @@ export default function App() {
   // Language switch effect on terminal welcome if empty history
   useEffect(() => {
     setTerminalHistory(prev => {
-      if (prev.length <= 3) {
+      if (prev.length <= 3 + t.terminal.welcomeLines.length) {
         return [
-          { text: t.terminal.welcome, type: 'system' },
+          ...t.terminal.welcomeLines.map(line => ({ text: line, type: 'ascii' })),
           { text: t.terminal.helpInstruction, type: 'system' },
           { text: '', type: 'system' }
         ];
@@ -1466,7 +1466,7 @@ export default function App() {
             </div>
 
             {/* Terminal Body */}
-            <div ref={terminalBodyRef} className="p-3 sm:p-4 h-[280px] sm:h-[380px] lg:h-[450px] overflow-y-auto font-mono text-xs space-y-2 flex flex-col text-left">
+            <div ref={terminalBodyRef} className="p-3 sm:p-4 h-[280px] sm:h-[380px] lg:h-[450px] overflow-auto font-mono text-xs space-y-2 flex flex-col text-left">
               <div className="flex-1">
                 {terminalHistory.map((line, index) => {
                   if (line.type === 'kali-prompt') {
@@ -1503,10 +1503,14 @@ export default function App() {
                   }
 
                   let colorClass = 'text-[#00ff66]';
+                  let whitespaceClass = 'whitespace-pre-wrap';
                   if (line.type === 'input') {
                     colorClass = 'text-white font-bold';
                   } else if (line.type === 'system') {
                     colorClass = 'text-gray-400';
+                  } else if (line.type === 'ascii') {
+                    colorClass = 'text-gray-400';
+                    whitespaceClass = 'whitespace-pre';
                   } else if (line.type === 'error') {
                     colorClass = 'text-red-400';
                   } else if (line.type === 'output') {
@@ -1518,7 +1522,7 @@ export default function App() {
                   }
 
                   return (
-                    <div key={index} className={`whitespace-pre-wrap leading-relaxed ${colorClass}`}>
+                    <div key={index} className={`${whitespaceClass} leading-relaxed ${colorClass}`}>
                       {renderTerminalText(line.text)}
                     </div>
                   );
