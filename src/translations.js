@@ -82,8 +82,8 @@ export const TRANSLATIONS = {
       certificationsHeader: 'Sertifikalar:',
       verifyBtn: 'Doğrula →',
       certifications: [
-        { name: 'Certified Associate Penetration Tester', link: 'https://hackviser.com/verify?id=HV-CAPT-INE6XMMF' },
-        { name: 'Certified Cybersecurity Foundations', link: 'https://hackviser.com/verify?id=HV-CORE-TFEQPOJ3' },
+        { name: 'Certified Associate Penetration Tester(CAPT)', link: 'https://hackviser.com/verify?id=HV-CAPT-INE6XMMF' },
+        { name: 'Certified Cybersecurity Foundations(CORE)', link: 'https://hackviser.com/verify?id=HV-CORE-TFEQPOJ3' },
         { name: 'Cisco CyberOps Associate', link: 'https://www.credly.com/badges/9bc1d95b-efc4-4c74-957c-6d26580bd8ef/linked_in_profile' },
         { name: 'CCNAv7', link: 'https://www.credly.com/badges/100976fb-b9a6-42bf-b0fe-6106e60fdf61/public_url' },
         { name: 'ISO 27001', link: 'https://drive.google.com/file/d/1xpQm88qs5qgyZgCiyUNRNWcVlHOCuNjw/view' },
@@ -284,8 +284,8 @@ export const TRANSLATIONS = {
       certificationsHeader: 'Certifications:',
       verifyBtn: 'Verify →',
       certifications: [
-        { name: 'Certified Associate Penetration Tester', link: 'https://hackviser.com/verify?id=HV-CAPT-INE6XMMF' },
-        { name: 'Certified Cybersecurity Foundations', link: 'https://hackviser.com/verify?id=HV-CORE-TFEQPOJ3' },
+        { name: 'Certified Associate Penetration Tester(CAPT)', link: 'https://hackviser.com/verify?id=HV-CAPT-INE6XMMF' },
+        { name: 'Certified Cybersecurity Foundations(CORE)', link: 'https://hackviser.com/verify?id=HV-CORE-TFEQPOJ3' },
         { name: 'Cisco CyberOps Associate', link: 'https://www.credly.com/badges/9bc1d95b-efc4-4c74-957c-6d26580bd8ef/linked_in_profile' },
         { name: 'CCNAv7', link: 'https://www.credly.com/badges/100976fb-b9a6-42bf-b0fe-6106e60fdf61/public_url' },
         { name: 'ISO 27001', link: 'https://drive.google.com/file/d/1xpQm88qs5qgyZgCiyUNRNWcVlHOCuNjw/view' },
