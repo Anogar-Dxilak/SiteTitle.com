@@ -14,6 +14,8 @@ export const TRANSLATIONS = {
     about: {
       name: 'Egemen Der',
       title: 'Bilgisayar Mühendisi | Siber Güvenlik & Red Team',
+      cvBtn: 'CV (PDF)',
+      cvUrl: '/documents/egemen_der_cv_tr.pdf',
       intro: 'İskenderun Teknik Üniversitesi Bilgisayar Mühendisliği mezunuyum. SOC operasyonlarında aktif olarak görev aldım ve bu süreçte SIEM yönetimi (Splunk, QRadar, Wazuh), güvenlik duvarı yapılandırmaları (FortiGate, pfSense) ve zafiyet tarama araçları (Nessus, Qualys, OpenVAS) konularında deneyim kazandım. Log analizi yapma, tehditleri erken aşamada tespit etme, ağ trafiğini inceleme ve zararlı yazılımların davranışlarını analiz etme konularında kendimi sürekli geliştirdim. Red Team alanına özel bir ilgi duyuyorum ve hem saldırı hem de savunma tarafındaki yetkinliklerimi her gün daha ileri taşımaya çalışıyorum. Detaylara önem veren, ekip çalışmasına uyumlu ve sorumluluk almaktan çekinmeyen bir yapıya sahip. Üstlendiğim her işi titiz, planlı ve profesyonel bir yaklaşımla tamamlamayı önemsiyorum.',
       contactLabels: {
         location: '📍 Konum:',
@@ -216,6 +218,8 @@ export const TRANSLATIONS = {
     about: {
       name: 'Egemen Der',
       title: 'Computer Engineer | Cybersecurity & Red Team',
+      cvBtn: 'CV (PDF)',
+      cvUrl: '/documents/egemen_der_cv_en.pdf',
       intro: 'I graduated from Iskenderun Technical University with a degree in Computer Engineering. I actively worked in SOC operations, gaining extensive hands-on experience in SIEM management (Splunk, QRadar, Wazuh), firewall configurations (FortiGate, pfSense), and vulnerability assessment tools (Nessus, Qualys, OpenVAS). I continuously sharpen my skills in log analysis, early threat detection, packet analysis, and malware behavior analysis. Passionate about Red Teaming, I aim to elevate both my offensive and defensive capabilities every day. I am detail-oriented, a team player, and dependable, committed to completing every assignment with precision, structure, and professionalism.',
       contactLabels: {
         location: '📍 Location:',

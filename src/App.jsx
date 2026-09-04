@@ -225,6 +225,7 @@ const getVirtualFs = (lang) => {
                     group: 'egemen',
                     size: 3200,
                     date: 'Jul 17 12:00',
+                    pdfUrl: isEn ? '/documents/egemen_der_cv_en.pdf' : '/documents/egemen_der_cv_tr.pdf',
                     content: `# ${t.about.name} - CV\n\n## ${isEn ? 'Personal Info' : 'Kişisel Bilgiler'}\nEmail:  ${t.about.contactValues.email || 'egemender@hotmail.com'}\nPhone:  +90 552 825 26 10\nLocation:    ${t.about.contactValues.location}\nLinkedIn: https://linkedin.com/in/egemen-der\nMedium:   https://medium.com/@egemender\nMilitary: ${t.about.contactValues.military}\nLanguages:   ${t.about.contactValues.languages}\n\n## ${isEn ? 'About Me' : 'Hakkımda'}\n${t.about.intro}\n\n## ${isEn ? 'Education' : 'Eğitim'}\n${t.education.school} - ${t.education.degree} (${t.education.date})\n${t.education.focusLabel} ${t.education.focus}\n${t.education.activities}\n${t.education.activities2}`
                   }
                 }
@@ -1236,7 +1237,21 @@ export default function App() {
               </div>
               
               <div className="flex-1 text-center md:text-left space-y-2">
-                <h2 className="text-2xl font-bold tracking-wide" style={{ color: '#ffffff' }}>{t.about.name}</h2>
+                <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                  <h2 className="text-2xl font-bold tracking-wide" style={{ color: '#ffffff' }}>{t.about.name}</h2>
+                  <a
+                    href={t.about.cvUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs bg-gray-950 border border-gray-800 text-gray-400 hover:text-[#00ff66] hover:border-[#00ff66]/60 px-3 py-1.5 rounded-lg transition flex items-center space-x-1.5 group font-mono"
+                    title={lang === 'en' ? 'Open PDF CV in new tab' : "PDF CV'yi yeni sekmede görüntüle"}
+                  >
+                    <svg className="w-3.5 h-3.5 fill-current text-gray-400 group-hover:text-[#00ff66] transition" viewBox="0 0 24 24">
+                      <path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/>
+                    </svg>
+                    <span>{t.about.cvBtn}</span>
+                  </a>
+                </div>
                 <p className="text-sm font-mono" style={{ color: '#00ff66' }}>{t.about.title}</p>
                 <p className="text-sm leading-relaxed text-gray-400 mt-3">{t.about.intro}</p>
               </div>
